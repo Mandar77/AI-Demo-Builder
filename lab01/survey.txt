@@ -1,0 +1,15 @@
+Survey.txt
+
+Xinyu Li
+
+Part01
+• Office hour prefer: Tuesdays and Thursdays afternoon(after class)
+• My goal: My goal is to gain a deeper understanding of Object-Oriented Design using Java, as I aim to become proficient in designing robust and maintainable software systems.
+
+Part02
+• Mac, Windows, or Linux: MacBook Pro
+• Processor; Cores; Clock Speed (M1, 8 cores, 3.2GHz)
+• Model and/or Year issued (2020)
+• Operating System Version (macOS 14.6.1)
+• Random Access Memory (16 GB)
+• Non-volatile Memory; Remaining Space Available (994.66GB; 826.88GB)
