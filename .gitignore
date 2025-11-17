@@ -1,0 +1,9 @@
+AWS_SAM_CLI.msi
+AWSCLIV2.msi
+node_modules/
+.vscode/
+.env
+__pycache__/
+*.pyc
+.venv/
+.zip
