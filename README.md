@@ -57,9 +57,10 @@ Verify: ```docker --version```
 # Verify
 python --version  # Should show Python 3.11.x
 pip --version
-AWS +2
+```
 Step 1.5: Install FFmpeg on Windows (for local testing)
-powershell# Using Chocolatey (recommended)
+```powershell
+# Using Chocolatey (recommended)
 choco install ffmpeg
 
 # OR download manually from https://www.gyan.dev/ffmpeg/builds/
