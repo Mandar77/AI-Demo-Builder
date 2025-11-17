@@ -42,8 +42,10 @@ sam --version
 Required for local Lambda testing and building cross-platform dependencies:
 
 Download from https://www.docker.com/products/docker-desktop
+
 Install and restart computer if prompted
-Verify: docker --version GitHub
+
+Verify: ```docker --version``` 
 
 ### Step 1.4: Install Python 3.11
 ```powershell
