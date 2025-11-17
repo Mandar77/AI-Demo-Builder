@@ -13,8 +13,11 @@ msiexec.exe /i AWSCLIV2.msi /qn
 # Verify installation
 aws --version
 # Expected: aws-cli/2.27.x Python/3.11.x Windows/10
+```
 Configure AWS Credentials:
-powershellaws configure
+
+```powershell
+aws configure
 # AWS Access Key ID: <your-key>
 # AWS Secret Access Key: <your-secret>
 # Default region name: us-east-1
