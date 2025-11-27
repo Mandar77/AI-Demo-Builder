@@ -1,0 +1,250 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Person 1 - All Services Unified Template (GitHub Fetcher, README Parser, Cache Service) - Supports shared resources
+
+# Parameters for supporting shared resources
+Parameters:
+  UseSharedResources:
+    Type: String
+    Default: "false"
+    Description: "Set to 'true' to use shared resources created by Person 3, 'false' to create own resources"
+    AllowedValues: ["true", "false"]
+  
+  SharedJobsTableName:
+    Type: String
+    Default: ""
+    Description: "Name of shared Jobs DynamoDB table (required if UseSharedResources=true)"
+  
+  SharedReposBucketName:
+    Type: String
+    Default: ""
+    Description: "Name of shared S3 bucket for repositories (required if UseSharedResources=true)"
+  
+  SharedCacheTableName:
+    Type: String
+    Default: ""
+    Description: "Name of shared Cache DynamoDB table (required if UseSharedResources=true)"
+
+# Conditions to control resource creation
+Conditions:
+  CreateResources: !Equals [!Ref UseSharedResources, "false"]
+  UseSharedResourcesCond: !Equals [!Ref UseSharedResources, "true"]
+
+Globals:
+  Function:
+    Timeout: 300
+    MemorySize: 512
+    Runtime: python3.12
+
+Resources:
+  # ==================== Shared Resources (Conditional Creation) ====================
+  
+  # S3 Bucket for storing repositories - Only created if not using shared resources
+  ReposBucket:
+    Type: AWS::S3::Bucket
+    Condition: CreateResources
+    Properties:
+      BucketName: !Sub 'ai-demo-builder-xinyu-dev-${AWS::AccountId}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  # DynamoDB Table for job tracking - Only created if not using shared resources
+  JobsTable:
+    Type: AWS::DynamoDB::Table
+    Condition: CreateResources
+    Properties:
+      TableName: ai-demo-builder-jobs
+      AttributeDefinitions:
+        - AttributeName: jobId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: jobId
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+  
+  # DynamoDB Table for cache - Only created if not using shared resources
+  CacheTable:
+    Type: AWS::DynamoDB::Table
+    Condition: CreateResources
+    Properties:
+      TableName: ai-demo-builder-cache
+      AttributeDefinitions:
+        - AttributeName: cache_key
+          AttributeType: S
+      KeySchema:
+        - AttributeName: cache_key
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+
+  # ==================== Lambda Functions ====================
+
+  # Service 1: GitHub Fetcher
+  GitHubFetcherFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: ai-demo-builder-github-fetcher
+      CodeUri: ../lambda/analysis-pipeline/github-fetcher/
+      Handler: app.lambda_handler
+      Description: Fetches repository content from GitHub and stores in S3
+      Environment:
+        Variables:
+          # Use shared bucket or own bucket based on condition
+          S3_BUCKET_NAME: !If
+            - UseSharedResourcesCond
+            - !Ref SharedReposBucketName
+            - !Ref ReposBucket
+          # Use shared table or own table based on condition
+          JOBS_TABLE_NAME: !If
+            - UseSharedResourcesCond
+            - !Ref SharedJobsTableName
+            - !Ref JobsTable
+          # Use shared cache table or own table based on condition
+          CACHE_TABLE_NAME: !If
+            - UseSharedResourcesCond
+            - !Ref SharedCacheTableName
+            - !Ref CacheTable
+      Policies:
+        # S3 policy - reference bucket conditionally
+        - S3WritePolicy:
+            BucketName: !If
+              - UseSharedResourcesCond
+              - !Ref SharedReposBucketName
+              - !Ref ReposBucket
+        # DynamoDB policy - reference table conditionally
+        - DynamoDBCrudPolicy:
+            TableName: !If
+              - UseSharedResourcesCond
+              - !Ref SharedJobsTableName
+              - !Ref JobsTable
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /fetch
+            Method: post
+            RestApiId: !Ref Person1Api
+
+  # Service 2: README Parser
+  ReadmeParserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: ai-demo-builder-readme-parser
+      CodeUri: ../lambda/analysis-pipeline/content-parser
+      Handler: app.lambda_handler
+      Description: Parses README files and extracts structured information
+      Environment:
+        Variables:
+          S3_BUCKET_NAME: !If
+            - UseSharedResourcesCond
+            - !Ref SharedReposBucketName
+            - !Ref ReposBucket
+          JOBS_TABLE_NAME: !If
+            - UseSharedResourcesCond
+            - !Ref SharedJobsTableName
+            - !Ref JobsTable
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !If
+              - UseSharedResourcesCond
+              - !Ref SharedReposBucketName
+              - !Ref ReposBucket
+        - DynamoDBCrudPolicy:
+            TableName: !If
+              - UseSharedResourcesCond
+              - !Ref SharedJobsTableName
+              - !Ref JobsTable
+      Events:
+        ReadmeApiEvent:
+          Type: Api
+          Properties:
+            Path: /parse
+            Method: post
+            RestApiId: !Ref Person1Api
+
+  # Service 3: Cache Service
+  CacheServiceFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: ai-demo-builder-cache-service
+      CodeUri: ../lambda/infrastructure/cache
+      Handler: app.lambda_handler
+      Description: Manages caching of analysis results in DynamoDB
+      Timeout: 60
+      MemorySize: 256
+      Environment:
+        Variables:
+          CACHE_TABLE_NAME: !If
+            - UseSharedResourcesCond
+            - !Ref SharedCacheTableName
+            - !Ref CacheTable
+          CACHE_TTL_SECONDS: "86400"
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !If
+              - UseSharedResourcesCond
+              - !Ref SharedCacheTableName
+              - !Ref CacheTable
+      Events:
+        CacheApiEvent:
+          Type: Api
+          Properties:
+            Path: /cache
+            Method: post
+            RestApiId: !Ref Person1Api
+
+  # ==================== API Gateway ====================
+
+  Person1Api:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: prod
+      Cors:
+        AllowMethods: "'POST,GET,OPTIONS'"
+        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization'"
+        AllowOrigin: "'*'"
+
+Outputs:
+  Person1ApiEndpoint:
+    Description: API Gateway endpoint URL
+    Value: !Sub 'https://${Person1Api}.execute-api.${AWS::Region}.amazonaws.com/prod'
+  
+  GitHubFetcherFunction:
+    Description: GitHub Fetcher Lambda Function ARN
+    Value: !GetAtt GitHubFetcherFunction.Arn
+  
+  ReadmeParserFunction:
+    Description: README Parser Lambda Function ARN
+    Value: !GetAtt ReadmeParserFunction.Arn
+  
+  CacheServiceFunction:
+    Description: Cache Service Lambda Function ARN
+    Value: !GetAtt CacheServiceFunction.Arn
+  
+  # Outputs conditionally based on whether resources are created
+  ReposBucket:
+    Description: S3 Bucket for repositories
+    Condition: CreateResources
+    Value: !Ref ReposBucket
+  
+  JobsTable:
+    Description: DynamoDB Jobs Table
+    Condition: CreateResources
+    Value: !Ref JobsTable
+  
+  CacheTable:
+    Description: DynamoDB Cache Table
+    Condition: CreateResources
+    Value: !Ref CacheTable
+  
+  # Outputs when using shared resources
+  SharedResourcesInfo:
+    Description: Information about shared resources being used
+    Condition: UseSharedResourcesCond
+    Value: !Sub |
+      Using shared resources:
+      - Jobs Table: ${SharedJobsTableName}
+      - Repos Bucket: ${SharedReposBucketName}
+      - Cache Table: ${SharedCacheTableName}

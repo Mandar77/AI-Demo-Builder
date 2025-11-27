@@ -1,0 +1,14 @@
+# README Parser Lambda Dependencies
+
+# AWS SDK
+boto3>=1.28.0
+
+# Markdown parsing
+markdown>=3.4.4
+Markdown>=3.4.4
+
+# HTML parsing
+beautifulsoup4>=4.12.0
+lxml>=4.9.0
+
+

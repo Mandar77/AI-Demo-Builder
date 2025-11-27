@@ -1,0 +1,7 @@
+# Shared utilities directory
+# These files may be created by Person 3 or team collaboration:
+# - __init__.py
+# - s3_utils.py
+# - dynamo_utils.py
+# - sqs_utils.py
+# - error_handler.py

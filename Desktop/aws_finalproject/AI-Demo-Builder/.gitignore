@@ -1,0 +1,51 @@
+AWS_SAM_CLI.msi
+AWSCLIV2.msi
+.vscode/
+.env
+__pycache__/
+*.pyc
+*.zip
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+
+# AWS SAM
+.aws-sam/
+samconfig.toml
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+*.mp4
+*.avi
+*.mov
+/tmp/
+layers/ffmpeg/bin/*
+!layers/ffmpeg/bin/.gitkeep
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+
+# Dependencies
+node_modules/

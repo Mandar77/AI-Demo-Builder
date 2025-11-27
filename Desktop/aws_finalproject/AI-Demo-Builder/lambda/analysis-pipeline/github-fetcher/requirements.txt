@@ -1,0 +1,14 @@
+# GitHub Fetcher Lambda Dependencies
+
+# AWS SDK
+boto3>=1.28.0
+
+# GitHub API (optional, falls back to REST API if not available)
+PyGithub>=1.59.0
+
+# HTTP requests (used as fallback for GitHub API)
+requests>=2.31.0
+
+# Utilities
+python-dateutil>=2.8.2
+

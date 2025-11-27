@@ -1,0 +1,6 @@
+# Project Analyzer Lambda Dependencies
+
+# AWS SDK
+boto3>=1.28.0
+
+
