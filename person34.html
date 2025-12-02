@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Pipeline - Person 3 & 4</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #2d3748;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #718096;
+            margin-bottom: 40px;
+            font-size: 1.1em;
+        }
+        
+        .phase-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin: 30px 0;
+            text-align: center;
+        }
+        
+        .phase-header h2 {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+        
+        .step-container {
+            background: #F7FAFC;
+            border-radius: 15px;
+            padding: 30px;
+            margin: 30px 0;
+        }
+        
+        .step {
+            background: white;
+            border-left: 5px solid;
+            border-radius: 10px;
+            padding: 25px;
+            margin: 20px 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .step.person3 { border-left-color: #805AD5; }
+        .step.person4 { border-left-color: #DD6B20; }
+        
+        .step-number {
+            display: inline-block;
+            background: #4299E1;
+            color: white;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 35px;
+            font-weight: bold;
+            margin-right: 15px;
+        }
+        
+        .step-title {
+            font-size: 1.3em;
+            color: #2d3748;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+        
+        .step-owner {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+        
+        .owner-person3 {
+            background: #E9D8FD;
+            color: #553C9A;
+        }
+        
+        .owner-person4 {
+            background: #FEEBC8;
+            color: #7C2D12;
+        }
+        
+        .step-content {
+            color: #4a5568;
+            line-height: 1.8;
+            font-size: 1.05em;
+        }
+        
+        .step-content strong {
+            color: #2d3748;
+        }
+        
+        .tech-stack {
+            background: #EDF2F7;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        
+        .code-block {
+            background: #2d3748;
+            color: #68D391;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            overflow-x: auto;
+            white-space: pre;
+        }
+        
+        .arrow {
+            text-align: center;
+            font-size: 2.5em;
+            color: #4299E1;
+            margin: 20px 0;
+        }
+        
+        .dynamodb-state {
+            background: #EBF8FF;
+            border: 2px solid #3182CE;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .dynamodb-state h4 {
+            color: #2C5282;
+            margin-bottom: 10px;
+        }
+        
+        .highlight {
+            background: #FFF9C4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+        
+        .service-card {
+            background: white;
+            border: 3px solid;
+            border-radius: 12px;
+            padding: 25px;
+            margin: 20px 0;
+        }
+        
+        .service-card h3 {
+            color: #2d3748;
+            margin-bottom: 15px;
+            font-size: 1.4em;
+        }
+        
+        .service-card ul {
+            list-style: none;
+            padding-left: 0;
+        }
+        
+        .service-card li {
+            padding: 8px 0;
+            padding-left: 25px;
+            position: relative;
+            color: #4a5568;
+        }
+        
+        .service-card li::before {
+            content: "▸";
+            position: absolute;
+            left: 0;
+            color: #4299E1;
+            font-weight: bold;
+        }
+        
+        .critical-note {
+            background: #FFF5F5;
+            border: 3px solid #E53E3E;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .critical-note h4 {
+            color: #E53E3E;
+            margin-bottom: 10px;
+        }
+        
+        .timeline {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin: 30px 0;
+        }
+        
+        .timeline-item {
+            display: flex;
+            margin: 20px 0;
+            padding: 15px;
+            background: #F7FAFC;
+            border-radius: 8px;
+        }
+        
+        .timeline-time {
+            font-weight: bold;
+            color: #805AD5;
+            min-width: 120px;
+        }
+        
+        .timeline-desc {
+            color: #4a5568;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📹 Video Pipeline: Phase 2 & 3</h1>
+        <p class="subtitle">Complete workflow from user video upload to final demo (Person 3 & 4)</p>
+        
+        <!-- Overview -->
+        <div class="phase-header">
+            <h2>Where We Are Now</h2>
+            <p style="font-size: 1.1em; margin-top: 10px;">
+                ✅ User has submitted GitHub URL<br>
+                ✅ Your services analyzed the repo and generated AI suggestions<br>
+                ✅ Frontend is showing 2-3 video ideas<br>
+                ✅ DynamoDB has the session with organized_videos<br><br>
+                <strong style="font-size: 1.3em;">NOW: User uploads videos...</strong>
+            </p>
+        </div>
+
+        <!-- Phase 2: Upload & Validation -->
+        <div class="step-container">
+            <h2 style="color: #805AD5; margin-bottom: 20px; text-align: center;">
+                🟣 PHASE 2: Video Upload & Validation (Person 3)
+            </h2>
+
+            <div class="step person3">
+                <div class="step-title">
+                    <span class="step-number">1</span>
+                    User Clicks "Upload Video 1"
+                </div>
+                <span class="step-owner owner-person3">Person 3: Service 7</span>
+                <div class="step-content">
+                    <strong>What happens:</strong> Frontend calls Person 3's Service 7 to get a presigned S3 URL<br><br>
+                    
+                    <strong>Frontend request:</strong>
+                    <div class="code-block">POST /generate-upload-url
+{
+  "session_id": "abc123",
+  "video_id": "abc123-v1",
+  "filename": "setup-demo.mp4",
+  "content_type": "video/mp4"
+}</div>
+                    
+                    <strong>Service 7 (Upload URL Generator) does:</strong><br>
+                    1. Read YOUR DynamoDB to verify session exists<br>
+                    2. Verify video_id is in organized_videos<br>
+                    3. Generate presigned S3 URL (expires in 1 hour)<br>
+                    4. Return URL to frontend<br><br>
+                    
+                    <strong>Response:</strong>
+                    <div class="code-block">{
+  "upload_url": "https://s3.amazonaws.com/demo-builder-videos/uploads/abc123-v1.mp4?signature=...",
+  "video_id": "abc123-v1",
+  "expires_in": 3600
+}</div>
+                    
+                    <div class="tech-stack">
+                        <strong>Tech:</strong> Python/Node.js + boto3/AWS SDK<br>
+                        <strong>AWS:</strong> S3 presigned URLs<br>
+                        <strong>Key function:</strong> s3.generate_presigned_url()
+                    </div>
+                </div>
+            </div>
+
+            <div class="arrow">↓</div>
+
+            <div class="step person3">
+                <div class="step-title">
+                    <span class="step-number">2</span>
+                    User's Browser Uploads Video Directly to S3
+                </div>
+                <span class="step-owner owner-person3">Direct Browser → S3</span>
+                <div class="step-content">
+                    <strong>What happens:</strong> Frontend uploads video file directly to S3 (NOT through Lambda)<br><br>
+                    
+                    <strong>Frontend JavaScript:</strong>
+                    <div class="code-block">// Upload directly to S3 (bypassing Lambda)
+const file = document.getElementById('video-file').files[0];
+
+await fetch(uploadUrl, {
+  method: 'PUT',
+  body: file,
+  headers: {
+    'Content-Type': 'video/mp4'
+  }
+});
+
+// Show progress bar
+console.log('Upload complete!');</div>
+                    
+                    <strong>Why direct upload?</strong><br>
+                    • Lambda has 6MB payload limit → Videos are 50-200MB<br>
+                    • S3 handles large files efficiently<br>
+                    • No Lambda timeout issues<br>
+                    • Faster for user<br><br>
+                    
+                    <strong>S3 location:</strong><br>
+                    Bucket: <code>demo-builder-videos</code><br>
+                    Key: <code>uploads/abc123-v1.mp4</code>
+                </div>
+            </div>
+
+            <div class="arrow">↓</div>
+
+            <div class="step person3">
+                <div class="step-title">
+                    <span class="step-number">3</span>
+                    S3 Event Triggers Service 8 (Upload Tracker)
+                </div>
+                <span class="step-owner owner-person3">Person 3: Service 8</span>
+                <div class="step-content">
+                    <strong>What happens:</strong> S3 automatically triggers Lambda when upload completes<br><br>
+                    
+                    <strong>S3 Event Configuration:</strong>
+                    <div class="code-block">Event: s3:ObjectCreated:Put
+Prefix: uploads/
+Suffix: .mp4
+Triggers: Service 8 Lambda</div>
+                    
+                    <strong>Service 8 receives:</strong>
+                    <div class="code-block">{
+  "Records": [{
+    "s3": {
+      "bucket": {"name": "demo-builder-videos"},
+      "object": {
+        "key": "uploads/abc123-v1.mp4",
+        "size": 45678901
+      }
+    }
+  }]
+}</div>
+                    
+                    <strong>Service 8 (Upload Tracker) does:</strong><br>
+                    1. Extract video_id from S3 key: "abc123-v1"<br>
+                    2. Extract session_id: "abc123"<br>
+                    3. Update YOUR DynamoDB:<br>
+                    
+                    <div class="dynamodb-state">
+                        <h4>📊 DynamoDB Update:</h4>
+                        <div class="code-block">UPDATE demo-builder-sessions
+SET organized_videos[0].status = 'uploaded',
+    organized_videos[0].s3_url = 's3://.../abc123-v1.mp4',
+    organized_videos[0].uploaded_at = '2024-12-02T10:30:00Z',
+    organized_videos[0].file_size = 45678901
+WHERE session_id = 'abc123'</div>
+                    </div>
+
+                    4. Send SNS notification (optional): "Video 1 uploaded!"<br><br>
+                    
+                    <div class="tech-stack">
+                        <strong>Tech:</strong> Python/Node.js + S3 events<br>
+                        <strong>AWS:</strong> S3 → Lambda trigger<br>
+                        <strong>Pattern:</strong> Event-driven architecture
+                    </div>
+                </div>
+            </div>
+
+            <div class="arrow">↓</div>
+
+            <div class="step person3">
+                <div class="step-title">
+                    <span class="step-number">4</span>
+                    Service 9: Video Validator (Automatic)
+                </div>
+                <span class="step-owner owner-person3">Person 3: Service 9</span>
+                <div class="step-content">
+                    <strong>What happens:</strong> Automatically triggered after upload to validate video<br><br>
+                    
+                    <strong>Service 9 (Video Validator) checks:</strong><br>
+                    1. File is actually a video (not a text file renamed to .mp4)<br>
+                    2. Video format: MP4, MOV, AVI, etc.<br>
+                    3. Video duration matches suggestion (60-120 seconds)<br>
+                    4. Video resolution: At least 720p<br>
+                    5. Video not corrupted<br>
+                    6. Audio track exists<br><br>
+                    
+                    <strong>Uses FFprobe (FFmpeg tool):</strong>
+                    <div class="code-block">import subprocess
+
+# Download from S3 (or stream)
+result = subprocess.run([
+    'ffprobe',
+    '-v', 'error',
+    '-show_entries', 'format=duration',
+    '-show_entries', 'stream=width,height,codec_name',
+    '-of', 'json',
+    video_file
+], capture_output=True)
+
+video_info = json.loads(result.stdout)
+duration = float(video_info['format']['duration'])
+width = video_info['streams'][0]['width']
+height = video_info['streams'][0]['height']
+
+# Validate
+if duration < 60 or duration > 130:
+    raise ValueError('Video too short/long')
+if height < 720:
+    raise ValueError('Video resolution too low')</div>
+                    
+                    <strong>If validation passes:</strong>
+                    <div class="dynamodb-state">
+                        <h4>📊 DynamoDB Update:</h4>
+                        <div class="code-block">UPDATE organized_videos[0]
+SET status = 'validated',
+    validated_at = '2024-12-02T10:31:00Z',
+    duration = 75,
+    resolution = '1920x1080',
+    format = 'mp4'</div>
+                    </div>
+
+                    <strong>If validation fails:</strong><br>
+                    • Status = 'validation_failed'<br>
+                    • Error message stored in DynamoDB<br>
+                    • Frontend shows error, asks user to re-upload<br><br>
+                    
+                    <div class="tech-stack">
+                        <strong>Tech:</strong> Python + FFmpeg/FFprobe<br>
+                        <strong>Critical:</strong> FFmpeg must be in Lambda Layer (large binary)<br>
+                        <strong>Timeout:</strong> 60 seconds (video processing)
+                    </div>
+                </div>
+            </div>
+
+            <div class="arrow">↓</div>
+
+            <div class="step person3">
+                <div class="step-title">
+                    <span class="step-number">5</span>
+                    Service 10: Format Converter (Optional)
+                </div>
+                <span class="step-owner owner-person3">Person 3: Service 10</span>
+                <div class="step-content">
+                    <strong>What happens:</strong> Convert all videos to standard format for stitching<br><br>
+                    
+                    <strong>Why needed?</strong><br>
+                    • User might upload MOV, AVI, MKV, WebM<br>
+                    • Service 13 (stitcher) needs consistent format<br>
+                    • Standardize: H.264 codec, MP4 container, 30fps, AAC audio<br><br>
+                    
+                    <strong>Service 10 uses FFmpeg:</strong>
+                    <div class="code-block">ffmpeg -i input.mov \
+  -c:v libx264 \      # Video codec: H.264
+  -preset fast \       # Encoding speed
+  -crf 23 \            # Quality (lower = better)
+  -c:a aac \           # Audio codec: AAC
+  -b:a 128k \          # Audio bitrate
+  -r 30 \              # Frame rate: 30fps
+  -vf scale=1920:1080  # Resolution
+  output.mp4</div>
+                    
+                    <strong>Output:</strong><br>
+                    • Saves to: <code>s3://demo-builder-videos/converted/abc123-v1.mp4</code><br>
+                    • Updates DynamoDB with converted URL<br><br>
+                    
+                    <div class="dynamodb-state">
+                        <h4>📊 DynamoDB Update:</h4>
+                        <div class="code-block">UPDATE organized_videos[0]
+SET status = 'converted',
+    converted_url = 's3://.../converted/abc123-v1.mp4',
+    converted_at = '2024-12-02T10:32:00Z'</div>
+                    </div>
+
+                    <div class="critical-note">
+                        <h4>⚠️ CRITICAL: FFmpeg in Lambda</h4>
+                        FFmpeg binary is ~50MB. Must be in Lambda Layer.<br>
+                        Pre-built layer: <code>arn:aws:lambda:...:layer:ffmpeg:1</code><br>
+                        Or build custom: <code>lambci/lambda:build-python3.11</code>
+                    </div>
+                </div>
+            </div>
+
+            <div class="step person3">
+                <div class="step-title">
+                    <span class="step-number">6</span>
+                    User Uploads Videos 2 & 3 (Repeat Steps 1-5)
+                </div>
+                <span class="step-owner owner-person3">Same process</span>
+                <div class="step-content">
+                    Each video goes through:<br>
+                    1. Generate upload URL (Service 7)<br>
+                    2. Upload to S3<br>
+                    3. Track upload (Service 8)<br>
+                    4. Validate (Service 9)<br>
+                    5. Convert (Service 10)<br><br>
+                    
+                    <strong>DynamoDB tracks all videos:</strong>
+                    <div class="code-block">{
+  "organized_videos": [
+    {"video_id": "abc123-v1", "status": "converted", ...},
+    {"video_id": "abc123-v2", "status": "converted", ...},
+    {"video_id": "abc123-v3", "status": "uploading", ...}
+  ]
+}</div>
+                    
+                    <strong>When all videos uploaded:</strong>
+                    <div class="dynamodb-state">
+                        <h4>📊 DynamoDB Update:</h4>
+                        <div class="code-block">UPDATE demo-builder-sessions
+SET status = 'videos_ready',
+    ready_for_processing = true,
+    all_videos_uploaded_at = '2024-12-02T10:35:00Z'
+WHERE session_id = 'abc123'</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Phase 3: Demo Generation -->
+        <div class="step-container" style="background: #FFF5E6;">
+            <h2 style="color: #DD6B20; margin-bottom: 20px; text-align: center;">
+                🟠 PHASE 3: Demo Generation (Person 4) - THE HARD PART
+            </h2>
+
+            <div class="critical-note">
+                <h4>⚠️ Why This is Hard</h4>
+                • FFmpeg is complex with 1000+ options<br>
+                • Video stitching requires perfect sync (audio + video)<br>
+                • Large files = long processing time (2-5 minutes)<br>
+                • Must run async (can't block API)<br>
+                • Memory intensive (need 2-4GB RAM)<br><br>
+                <strong>Person 4 has the hardest technical challenge!</strong>
+            </div>
+
+            <div class="step person4">
+                <div class="step-title">
+                    <span class="step-number">7</span>
+                    Service 11: Job Queue Service (Trigger Processing)
+                </div>
+                <span class="step-owner owner-person4">Person 4: Service 11</span>
+                <div class="step-content">
+                    <strong>What happens:</strong> Detects all videos ready, queues processing job<br><br>
+                    
+                    <strong>Triggered by:</strong><br>
+                    • DynamoDB Stream (watches for status = 'videos_ready')<br>
+                    • Or Service 10 calls it after last video converts<br><br>
+                    
+                    <strong>Service 11 (Job Queue) does:</strong><br>
+                    1. Read YOUR DynamoDB to get all video URLs<br>
+                    2. Create processing job<br>
+                    3. Send to SQS queue<br>
+                    4. Update status = 'queued'<br><br>
+                    
+                    <strong>SQS Message:</strong>
+                    <div class="code-block">{
+  "session_id": "abc123",
+  "videos": [
+    {"video_id": "abc123-v1", "s3_url": "s3://.../converted/abc123-v1.mp4"},
+    {"video_id": "abc123-v2", "s3_url": "s3://.../converted/abc123-v2.mp4"},
+    {"video_id": "abc123-v3", "s3_url": "s3://.../converted/abc123-v3.mp4"}
+  ],
+  "project_name": "react",
+  "github_url": "github.com/facebook/react"
+}</div>
+                    
+                    <div class="dynamodb-state">
+                        <h4>📊 DynamoDB Update:</h4>
+                        <div class="code-block">UPDATE demo-builder-sessions
+SET status = 'queued',
+    queued_at = '2024-12-02T10:36:00Z',
+    queue_position = 3,
+    estimated_time = '180 seconds'</div>
+                    </div>
+
+                    <div class="tech-stack">
+                        <strong>Tech:</strong> SQS (Simple Queue Service)<br>
+                        <strong>Why SQS?</strong> Async processing, retry failed jobs, handle load<br>
+                        <strong>Queue settings:</strong> Visibility timeout = 600s (10 min)
+                    </div>
+                </div>
+            </div>
+
+            <div class="arrow">↓</div>
+
+            <div class="step person4">
+                <div class="step-title">
+                    <span class="step-number">8</span>
+                    Service 12: Slide Creator (Generate Intro/Outro)
+                </div>
+                <span class="step-owner owner-person4">Person 4: Service 12</span>
+                <div class="step-content">
+                    <strong>What happens:</strong> Create title slides to bookend the videos<br><br>
+                    
+                    <strong>Service 12 generates 3 video clips:</strong><br><br>
+                    
+                    <strong>1. Intro Slide (5 seconds):</strong>
+                    <div class="code-block">┌────────────────────────────┐
+│                            │
+│    🎬 React Demo Video     │
+│                            │
+│   facebook/react           │
+│                            │
+│   A JavaScript library     │
+│   for building UIs         │
+│                            │
+└────────────────────────────┘</div>
+                    
+                    <strong>2. Transition Slides (2 seconds each):</strong>
+                    <div class="code-block">┌────────────────────────────┐
+│                            │
+│    📹 Video 2:             │
+│    Core Features Demo      │
+│                            │
+└────────────────────────────┘</div>
+                    
+                    <strong>3. Outro Slide (5 seconds):</strong>
+                    <div class="code-block">┌────────────────────────────┐
+│                            │
+│    ⭐ Star on GitHub       │
+│    github.com/facebook/    │
+│           react            │
+│                            │
+│    Thanks for watching!    │
+│                            │
+└────────────────────────────┘</div>
+                    
+                    <strong>How to create slides:</strong><br>
+                    Option A: Use FFmpeg to generate from images<br>
+                    Option B: Use Node.js Canvas to draw text/graphics<br>
+                    Option C: Pre-made template videos<br><br>
+                    
+                    <strong>FFmpeg command (text to video):</strong>
+                    <div class="code-block">ffmpeg -f lavfi -i color=c=black:s=1920x1080:d=5 \
+  -vf "drawtext=text='React Demo Video':fontsize=72:fontcolor=white:x=(w-text_w)/2:y=(h-text_h)/2" \
+  intro.mp4</div>
+                    
+                    <strong>Output:</strong><br>
+                    • <code>s3://.../slides/abc123-intro.mp4</code><br>
+                    • <code>s3://.../slides/abc123-transition-1.mp4</code><br>
+                    • <code>s3://.../slides/abc123-transition-2.mp4</code><br>
+                    • <code>s3://.../slides/abc123-outro.mp4</code><br><br>
+                    
+                    <div class="tech-stack">
+                        <strong>Tech:</strong> Node.js + Canvas or Python + Pillow or FFmpeg<br>
+                        <strong>Assets:</strong> Fonts, logos, background images<br>
+                        <strong>Time:</strong> 10-20 seconds per slide
+                    </div>
+                </div>
+            </div>
+
+            <div class="arrow">↓</div>
+
+            <div class="step person4">
+                <div class="step-title">
+                    <span class="step-number">9</span>
+                    Service 13: Video Stitcher ⚠️ HARDEST SERVICE
+                </div>
+                <span class="step-owner owner-person4">Person 4: Service 13</span>
+                <div class="step-content">
+                    <strong>What happens:</strong> Combine all videos + slides into one final demo<br><br>
+                    
+                    <div class="critical-note">
+                        <h4>⚠️ THIS IS THE MOST COMPLEX SERVICE</h4>
+                        • Requires deep FFmpeg knowledge<br>
+                        • Audio/video sync is tricky<br>
+                        • Large memory needed (2-4GB)<br>
+                        • Takes 2-5 minutes to process<br>
+                        • Person 4 should START TESTING FFMPEG IMMEDIATELY (Day 4-5)<br><br>
+                        <strong>Don't underestimate this!</strong>
+                    </div>
+                    
+                    <strong>Service 13 stitching process:</strong><br><br>
+                    
+                    <strong>Step 1: Download all videos from S3</strong>
+                    <div class="code-block"># Download to Lambda /tmp (500MB limit)
+videos = [
+    '/tmp/intro.mp4',
+    '/tmp/video-1.mp4',
+    '/tmp/transition-1.mp4',
+    '/tmp/video-2.mp4',
+    '/tmp/transition-2.mp4',
+    '/tmp/video-3.mp4',
+    '/tmp/outro.mp4'
+]
+
+for video in videos:
+    s3.download_file(bucket, key, video)</div>
+                    
+                    <strong>Step 2: Create concat list</strong>
+                    <div class="code-block"># concat.txt
+file '/tmp/intro.mp4'
+file '/tmp/video-1.mp4'
+file '/tmp/transition-1.mp4'
+file '/tmp/video-2.mp4'
+file '/tmp/transition-2.mp4'
+file '/tmp/video-3.mp4'
+file '/tmp/outro.mp4'</div>
+                    
+                    <strong>Step 3: FFmpeg concat (THE HARD PART)</strong>
+                    <div class="code-block"># Simple concat (if all videos have same format)
+ffmpeg -f concat -safe 0 -i concat.txt -c copy output.mp4
+
+# OR Complex concat (if videos differ)
+ffmpeg -i intro.mp4 -i video-1.mp4 -i transition-1.mp4 \
+  -i video-2.mp4 -i transition-2.mp4 -i video-3.mp4 -i outro.mp4 \
+  -filter_complex "[0:v][0:a][1:v][1:a][2:v][2:a][3:v][3:a][4:v][4:a][5:v][5:a][6:v][6:a]concat=n=7:v=1:a=1[outv][outa]" \
+  -map "[outv]" -map "[outa]" \
+  -c:v libx264 -preset fast -crf 23 \
+  -c:a aac -b:a 192k \
+  output.mp4</div>
+                    
+                    <strong>Common issues Person 4 will face:</strong><br>
+                    • Videos have different frame rates → Re-encode all to 30fps<br>
+                    • Audio sync issues → Use -vsync 2 flag<br>
+                    • Lambda timeout → Increase to 15 minutes, use 3008MB memory<br>
+                    • /tmp space limit → Stream directly from/to S3 if possible<br>
+                    • FFmpeg crashes → Check codec compatibility<br><br>
+                    
+                    <strong>Step 4: Upload final video</strong>
+                    <div class="code-block">s3.upload_file(
+    '/tmp/output.mp4',
+    'demo-builder-videos',
+    'final/abc123.mp4'
+)</div>
+                    
+                    <div class="dynamodb-state">
+                        <h4>📊 DynamoDB Update:</h4>
+                        <div class="code-block">UPDATE demo-builder-sessions
+SET status = 'stitching_complete',
+    final_video_url = 's3://.../final/abc123.mp4',
+    stitched_at = '2024-12-02T10:40:00Z',
+    processing_time = '245 seconds',
+    final_duration = '225 seconds',
+    final_size = '52MB'</div>
+                    </div>
+
+                    <div class="tech-stack">
+                        <strong>Tech:</strong> Python + FFmpeg (critical!)<br>
+                        <strong>Lambda:</strong> 3008MB RAM, 900s timeout<br>
+                        <strong>Layer:</strong> FFmpeg binary (~50MB)<br>
+                        <strong>Testing:</strong> MUST test locally with real videos first!
+                    </div>
+                </div>
+            </div>
+
+            <div class="arrow">↓</div>
+
+            <div class="step person4">
+                <div class="step-title">
+                    <span class="step-number">10</span>
+                    Service 14: Video Optimizer (Compression)
+                </div>
+                <span class="step-owner owner-person4">Person 4: Service 14</span>
+                <div class="step-content">
+                    <strong>What happens:</strong> Compress video for web, create multiple resolutions<br><br>
+                    
+                    <strong>Service 14 optimizes for:</strong><br>
+                    • File size (target ~50MB for 3-minute video)<br>
+                    • Web streaming (fast start, progressive download)<br>
+                    • Multiple resolutions (1080p, 720p, 480p)<br><br>
+                    
+                    <strong>FFmpeg optimization:</strong>
+                    <div class="code-block"># High quality but smaller file
+ffmpeg -i final.mp4 \
+  -c:v libx264 \
+  -preset slow \        # Slower = smaller file
+  -crf 23 \             # Quality (18-28 range)
+  -movflags +faststart \  # Web optimization
+  -c:a aac -b:a 128k \
+  optimized.mp4
+
+# Create 720p version
+ffmpeg -i optimized.mp4 \
+  -vf scale=-2:720 \
+  -c:v libx264 -preset fast -crf 23 \
+  optimized-720p.mp4</div>
+                    
+                    <strong>Result:</strong><br>
+                    • Original: 120MB<br>
+                    • Optimized 1080p: 48MB<br>
+                    • Optimized 720p: 22MB<br><br>
+                    
+                    <div class="tech-stack">
+                        <strong>Tech:</strong> FFmpeg optimization<br>
+                        <strong>Time:</strong> 1-2 minutes<br>
+                        <strong>Output:</strong> s3://.../final/abc123-optimized.mp4
+                    </div>
+                </div>
+            </div>
+
+            <div class="arrow">↓</div>
+
+            <div class="step person4">
+                <div class="step-title">
+                    <span class="step-number">11</span>
+                    Service 15: Public Link Generator (CloudFront)
+                </div>
+                <span class="step-owner owner-person4">Person 4: Service 15</span>
+                <div class="step-content">
+                    <strong>What happens:</strong> Make video publicly accessible via CDN<br><br>
+                    
+                    <strong>Service 15 does:</strong><br>
+                    1. Upload optimized video to public S3 location<br>
+                    2. Create CloudFront distribution (or use existing)<br>
+                    3. Generate public URL<br>
+                    4. Optionally: Create signed URL with expiration<br><br>
+                    
+                    <strong>CloudFront setup:</strong>
+                    <div class="code-block"># CDK/CloudFormation
+const distribution = new cloudfront.Distribution(this, 'VideoCDN', {
+  defaultBehavior: {
+    origin: new origins.S3Origin(bucket),
+    viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+  },
+  domainNames: ['demos.yourproject.com'],
+});</div>
+                    
+                    <strong>Public URL:</strong><br>
+                    <code>https://d12345abcdef.cloudfront.net/abc123.mp4</code><br>
+                    or<br>
+                    <code>https://demos.yourproject.com/abc123</code><br><br>
+                    
+                    <div class="dynamodb-state">
+                        <h4>📊 DynamoDB Final Update:</h4>
+                        <div class="code-block">UPDATE demo-builder-sessions
+SET status = 'complete',
+    public_link = 'https://d12345.cloudfront.net/abc123.mp4',
+    public_link_created_at = '2024-12-02T10:42:00Z',
+    completed_at = '2024-12-02T10:42:00Z',
+    total_processing_time = '372 seconds'
+WHERE session_id = 'abc123'</div>
+                    </div>
+
+                    <div class="tech-stack">
+                        <strong>Tech:</strong> CloudFront + S3<br>
+                        <strong>Benefits:</strong> Fast global delivery, caching<br>
+                        <strong>Cost:</strong> ~$0.085/GB transfer
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Timeline Summary -->
+        <div class="timeline">
+            <h2 style="text-align: center; margin-bottom: 30px;">⏱️ Complete Timeline</h2>
+            
+            <div class="timeline-item">
+                <div class="timeline-time">0:00</div>
+                <div class="timeline-desc">User clicks "Upload Video 1"</div>
+            </div>
+            <div class="timeline-item">
+                <div class="timeline-time">0:02</div>
+                <div class="timeline-desc">Frontend gets presigned URL (Service 7)</div>
+            </div>
+            <div class="timeline-item">
+                <div class="timeline-time">0:45</div>
+                <div class="timeline-desc">Video uploaded to S3 (43 seconds for 50MB)</div>
+            </div>
+            <div class="timeline-item">
+                <div class="timeline-time">0:46</div>
+                <div class="timeline-desc">Upload tracked (Service 8)</div>
+            </div>
+            <div class="timeline-item">
+                <div class="timeline-time">0:55</div>
+                <div class="timeline-desc">Video validated (Service 9)</div>
+            </div>
+            <div class="timeline-item">
+                <div class="timeline-time">1:25</div>
+                <div class="timeline-desc">Video converted (Service 10)</div>
+            </div>
+            <div class="timeline-item">
+                <div class="timeline-time">1:30 - 5:00</div>
+                <div class="timeline-desc">User uploads videos 2 & 3 (repeat process)</div>
+            </div>
+            <div class="timeline-item">
+                <div class="timeline-time">5:01</div>
+                <div class="timeline-desc">All videos ready, job queued (Service 11)</div>
+            </div>
+            <div class="timeline-item">
+                <div class="timeline-time">5:15</div>
+                <div class="timeline-desc">Slides created (Service 12)</div>
+            </div>
+            <div class="timeline-item">
+                <div class="timeline-time">5:16 - 9:00</div>
+                <div class="timeline-desc">🔴 Videos stitched (Service 13) - LONGEST STEP</div>
+            </div>
+            <div class="timeline-item">
+                <div class="timeline-time">9:01 - 10:30</div>
+                <div class="timeline-desc">Video optimized (Service 14)</div>
+            </div>
+            <div class="timeline-item">
+                <div class="timeline-time">10:31</div>
+                <div class="timeline-desc">Public link created (Service 15)</div>
+            </div>
+            <div class="timeline-item" style="background: #C6F6D5; border: 2px solid #48BB78;">
+                <div class="timeline-time" style="color: #22543D;"><strong>✅ 10:32</strong></div>
+                <div class="timeline-desc"><strong>DEMO READY! User gets link 🎉</strong></div>
+            </div>
+        </div>
+
+        <!-- Service Summary -->
+        <div style="background: #F7FAFC; border-radius: 15px; padding: 30px; margin: 30px 0;">
+            <h2 style="text-align: center; margin-bottom: 30px;">📋 Person 3 & 4 Service Breakdown</h2>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div class="service-card" style="border-color: #805AD5;">
+                    <h3>🟣 Person 3: Upload Pipeline</h3>
+                    <ul>
+                        <li><strong>Service 7:</strong> Generate S3 upload URLs</li>
+                        <li><strong>Service 8:</strong> Track uploads (S3 events)</li>
+                        <li><strong>Service 9:</strong> Validate videos (FFprobe)</li>
+                        <li><strong>Service 10:</strong> Convert format (FFmpeg)</li>
+                    </ul>
+                    <p style="margin-top: 15px; color: #553C9A; font-weight: bold;">
+                        Difficulty: Medium<br>
+                        Time: Days 4-7<br>
+                        Key: S3 events + FFmpeg basics
+                    </p>
+                </div>
+                
+                <div class="service-card" style="border-color: #DD6B20;">
+                    <h3>🟠 Person 4: Processing Pipeline</h3>
+                    <ul>
+                        <li><strong>Service 11:</strong> Queue jobs (SQS)</li>
+                        <li><strong>Service 12:</strong> Create slides</li>
+                        <li><strong>Service 13:</strong> Stitch videos ⚠️ HARD</li>
+                        <li><strong>Service 14:</strong> Optimize (compression)</li>
+                        <li><strong>Service 15:</strong> Public link (CloudFront)</li>
+                    </ul>
+                    <p style="margin-top: 15px; color: #7C2D12; font-weight: bold;">
+                        Difficulty: HIGH<br>
+                        Time: Days 4-10<br>
+                        Key: FFmpeg mastery required!
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 40px; padding: 30px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 15px; color: white;">
+            <h2 style="margin-bottom: 20px;">🎯 Key Takeaway</h2>
+            <p style="font-size: 1.15em; line-height: 1.8;">
+                <strong>Person 3:</strong> Handles upload logistics (S3, validation)<br>
+                <strong>Person 4:</strong> Does the heavy lifting (FFmpeg, stitching)<br>
+                <strong>Both:</strong> Read from YOUR DynamoDB, update YOUR table<br><br>
+                <span style="font-size: 1.3em;">Service 13 (video stitching) is the HARDEST service in the entire project!</span>
+            </p>
+        </div>
+    </div>
+</body>
+</html>
