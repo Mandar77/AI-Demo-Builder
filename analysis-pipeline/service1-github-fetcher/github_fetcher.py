@@ -308,16 +308,16 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         print(f"[Service1] Calling Service 3 to analyze project...")
         project_analysis = call_service3_analyze_project(github_data, parsed_readme)
         
-        # Step 4: Optionally cache the result (non-blocking)
-        cache_key = f"github_{github_data.get('owner', '')}_{github_data.get('projectName', '')}"
-        call_service4_cache_result(cache_key, github_data)
-        
         # Combine all results
         result = {
             "github_data": github_data,
             "parsed_readme": parsed_readme,
             "project_analysis": project_analysis
         }
+        
+        # Step 4: Cache the complete result in DynamoDB (non-blocking)
+        cache_key = f"github_{github_data.get('owner', '')}_{github_data.get('projectName', '')}"
+        call_service4_cache_result(cache_key, result)
         
         # Check if this is an API Gateway request (AWS_PROXY integration)
         # API Gateway expects body as JSON string
