@@ -1,7 +1,3 @@
-# My Services - AWS Lambda Microservices
-
-This directory contains 4 independent AWS Lambda microservices that work together to analyze GitHub repositories.
-
 ## Services Overview
 
 ### Service 1: GitHub Repository Fetcher
