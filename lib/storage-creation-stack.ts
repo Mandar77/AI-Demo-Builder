@@ -53,7 +53,7 @@ export class StorageCreationStack extends cdk.Stack {
     })
 
     // =============================================================================================
-    // Exports
+    // Exports to be used by other stacks
     // =============================================================================================
     new cdk.CfnOutput(this, 'SessionTableName', {
         value: this.sessionTable.tableName,
