@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Demo Builder - System Architecture</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #2d3748;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #718096;
+            margin-bottom: 40px;
+            font-size: 1.1em;
+        }
+        
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .legend-box {
+            width: 30px;
+            height: 30px;
+            border-radius: 8px;
+            border: 2px solid #ddd;
+        }
+        
+        .phase1 { background: #EBF4FF; border-color: #3182CE !important; }
+        .phase2 { background: #F0E7FF; border-color: #805AD5 !important; }
+        .phase3 { background: #FFF5E6; border-color: #DD6B20 !important; }
+        .phase4 { background: #FFE7E7; border-color: #E53E3E !important; }
+        
+        .diagram {
+            position: relative;
+            margin: 40px 0;
+        }
+        
+        .phase-section {
+            margin-bottom: 50px;
+            padding: 30px;
+            border-radius: 15px;
+            position: relative;
+        }
+        
+        .phase-title {
+            font-size: 1.5em;
+            font-weight: bold;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .phase-title .time {
+            font-size: 0.7em;
+            color: #718096;
+            font-weight: normal;
+        }
+        
+        .services-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .service-box {
+            background: white;
+            border: 3px solid #ddd;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+            position: relative;
+        }
+        
+        .service-box:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+        }
+        
+        .service-number {
+            position: absolute;
+            top: -12px;
+            left: -12px;
+            background: #2d3748;
+            color: white;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+        
+        .service-title {
+            font-weight: bold;
+            font-size: 1.1em;
+            margin-bottom: 8px;
+            color: #2d3748;
+        }
+        
+        .service-owner {
+            font-size: 0.85em;
+            color: #805AD5;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .service-desc {
+            font-size: 0.9em;
+            color: #4a5568;
+            line-height: 1.5;
+        }
+        
+        .service-tech {
+            margin-top: 10px;
+            font-size: 0.8em;
+            color: #718096;
+            font-style: italic;
+        }
+        
+        .critical {
+            border-color: #E53E3E !important;
+            background: #FFF5F5;
+        }
+        
+        .critical::after {
+            content: "⚠️ CRITICAL";
+            position: absolute;
+            top: -12px;
+            right: 10px;
+            background: #E53E3E;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.75em;
+            font-weight: bold;
+        }
+        
+        .infrastructure {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin-top: 40px;
+            padding: 30px;
+            background: #F7FAFC;
+            border-radius: 15px;
+        }
+        
+        .infra-box {
+            background: white;
+            border: 3px solid #4299E1;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .infra-icon {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .infra-title {
+            font-weight: bold;
+            color: #2d3748;
+            margin-bottom: 5px;
+        }
+        
+        .infra-desc {
+            font-size: 0.85em;
+            color: #718096;
+        }
+        
+        .flow-arrow {
+            text-align: center;
+            font-size: 2em;
+            color: #4299E1;
+            margin: 20px 0;
+        }
+        
+        .dynamodb-state {
+            background: #EDF2F7;
+            border-left: 5px solid #4299E1;
+            padding: 20px;
+            margin: 30px 0;
+            border-radius: 8px;
+        }
+        
+        .dynamodb-state h3 {
+            color: #2d3748;
+            margin-bottom: 15px;
+        }
+        
+        .state-example {
+            background: #2d3748;
+            color: #68D391;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            overflow-x: auto;
+            white-space: pre;
+        }
+        
+        .user-journey {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+        }
+        
+        .user-journey h2 {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .journey-steps {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        
+        .journey-step {
+            text-align: center;
+            flex: 1;
+            min-width: 150px;
+        }
+        
+        .journey-step-number {
+            background: white;
+            color: #667eea;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.3em;
+            margin: 0 auto 10px;
+        }
+        
+        .person-highlight {
+            background: #FFF5E6;
+            border: 3px solid #DD6B20;
+        }
+        
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+            .container {
+                box-shadow: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎬 AI Demo Builder - System Architecture</h1>
+        <p class="subtitle">Complete end-to-end flow from GitHub URL to final demo video</p>
+        
+        <!-- Legend -->
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-box phase1"></div>
+                <span>Phase 1: Analysis & Suggestions (2-10s)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-box phase2"></div>
+                <span>Phase 2: Upload & Validation (User-driven)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-box phase3"></div>
+                <span>Phase 3: Demo Generation (2-5min)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-box phase4"></div>
+                <span>Phase 4: Support Services</span>
+            </div>
+        </div>
+        
+        <!-- User Journey -->
+        <div class="user-journey">
+            <h2>👤 User Journey</h2>
+            <div class="journey-steps">
+                <div class="journey-step">
+                    <div class="journey-step-number">1</div>
+                    <div>Enter GitHub URL</div>
+                </div>
+                <div class="journey-step">
+                    <div class="journey-step-number">2</div>
+                    <div>See AI Suggestions</div>
+                </div>
+                <div class="journey-step">
+                    <div class="journey-step-number">3</div>
+                    <div>Upload Videos</div>
+                </div>
+                <div class="journey-step">
+                    <div class="journey-step-number">4</div>
+                    <div>Wait for Processing</div>
+                </div>
+                <div class="journey-step">
+                    <div class="journey-step-number">5</div>
+                    <div>Get Demo Link 🎉</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Diagram -->
+        <div class="diagram">
+            
+            <!-- Phase 1: Analysis & Suggestions -->
+            <div class="phase-section phase1">
+                <div class="phase-title">
+                    📊 Phase 1: Analysis & Suggestions 
+                    <span class="time">(2-10 seconds)</span>
+                </div>
+                
+                <div class="services-row">
+                    <div class="service-box">
+                        <div class="service-number">6</div>
+                        <div class="service-title">Session Creator</div>
+                        <div class="service-owner">Person 2 (You!)</div>
+                        <div class="service-desc">
+                            Creates unique session ID and initializes DynamoDB record. First service triggered when user submits GitHub URL.
+                        </div>
+                        <div class="service-tech">Tech: Python, DynamoDB, UUID</div>
+                    </div>
+                </div>
+                
+                <div class="flow-arrow">↓</div>
+                
+                <div class="services-row">
+                    <div class="service-box">
+                        <div class="service-number">1</div>
+                        <div class="service-title">GitHub Fetcher</div>
+                        <div class="service-owner">Person 1</div>
+                        <div class="service-desc">
+                            Fetches repository data from GitHub API including metadata, stars, language, topics.
+                        </div>
+                        <div class="service-tech">Tech: Python, GitHub API</div>
+                    </div>
+                    
+                    <div class="service-box">
+                        <div class="service-number">2</div>
+                        <div class="service-title">README Parser</div>
+                        <div class="service-owner">Person 1</div>
+                        <div class="service-desc">
+                            Extracts and parses README.md content, identifies project structure and documentation.
+                        </div>
+                        <div class="service-tech">Tech: Python, Markdown parsing</div>
+                    </div>
+                    
+                    <div class="service-box">
+                        <div class="service-number">3</div>
+                        <div class="service-title">Project Analyzer</div>
+                        <div class="service-owner">Person 1</div>
+                        <div class="service-desc">
+                            Analyzes tech stack, identifies key features, estimates complexity and demo duration.
+                        </div>
+                        <div class="service-tech">Tech: Python, Pattern matching</div>
+                    </div>
+                </div>
+                
+                <div class="flow-arrow">↓</div>
+                
+                <div class="services-row">
+                    <div class="service-box critical person-highlight">
+                        <div class="service-number">4</div>
+                        <div class="service-title">AI Suggestion Service</div>
+                        <div class="service-owner">Person 2 (You!)</div>
+                        <div class="service-desc">
+                            <strong>THE BRAIN:</strong> Calls Gemini AI with project context to generate 2-3 video suggestions with titles, durations, key points, hooks, and scripts.
+                        </div>
+                        <div class="service-tech">Tech: Python, Gemini API, AI Prompting</div>
+                    </div>
+                    
+                    <div class="service-box person-highlight">
+                        <div class="service-number">5</div>
+                        <div class="service-title">Suggestion Organizer</div>
+                        <div class="service-owner">Person 2 (You!)</div>
+                        <div class="service-desc">
+                            Adds video IDs (abc123-v1, v2), order numbers, status tracking (pending/uploaded/complete), and stores in DynamoDB.
+                        </div>
+                        <div class="service-tech">Tech: Python, DynamoDB</div>
+                    </div>
+                </div>
+                
+                <div class="dynamodb-state">
+                    <h3>📦 DynamoDB State After Phase 1:</h3>
+                    <div class="state-example">{
+  "session_id": "abc123",
+  "status": "suggestions_ready",
+  "repo_url": "github.com/user/my-app",
+  "organized_videos": [
+    {
+      "video_id": "abc123-v1",
+      "title": "Quick Setup Guide",
+      "duration_seconds": 75,
+      "status": "pending",
+      "s3_url": null
+    }
+  ]
+}</div>
+                </div>
+            </div>
+            
+            <!-- Phase 2: Upload & Validation -->
+            <div class="phase-section phase2">
+                <div class="phase-title">
+                    📤 Phase 2: Upload & Validation 
+                    <span class="time">(User-driven, ~5-10 minutes)</span>
+                </div>
+                
+                <div class="services-row">
+                    <div class="service-box">
+                        <div class="service-number">7</div>
+                        <div class="service-title">Upload URL Generator</div>
+                        <div class="service-owner">Person 3</div>
+                        <div class="service-desc">
+                            Generates presigned S3 URLs for secure direct browser-to-S3 uploads. URLs expire in 1 hour.
+                        </div>
+                        <div class="service-tech">Tech: Node.js, S3 presigned URLs</div>
+                    </div>
+                    
+                    <div class="service-box">
+                        <div class="service-number">8</div>
+                        <div class="service-title">Upload Tracker</div>
+                        <div class="service-owner">Person 3</div>
+                        <div class="service-desc">
+                            S3 event-triggered. Tracks upload progress, updates DynamoDB when videos are uploaded, manages upload state.
+                        </div>
+                        <div class="service-tech">Tech: Node.js, S3 Events</div>
+                    </div>
+                </div>
+                
+                <div class="flow-arrow">↓</div>
+                
+                <div class="services-row">
+                    <div class="service-box">
+                        <div class="service-number">9</div>
+                        <div class="service-title">Video Validator</div>
+                        <div class="service-owner">Person 3</div>
+                        <div class="service-desc">
+                            Validates uploaded videos: checks duration matches suggestion, verifies format (MP4, MOV), ensures not corrupted.
+                        </div>
+                        <div class="service-tech">Tech: Python, FFprobe</div>
+                    </div>
+                    
+                    <div class="service-box">
+                        <div class="service-number">10</div>
+                        <div class="service-title">Format Converter</div>
+                        <div class="service-owner">Person 3</div>
+                        <div class="service-desc">
+                            Converts all videos to standard format: H.264, MP4, 1080p, 30fps for consistent stitching.
+                        </div>
+                        <div class="service-tech">Tech: Python, FFmpeg</div>
+                    </div>
+                </div>
+                
+                <div class="dynamodb-state">
+                    <h3>📦 DynamoDB State After Phase 2:</h3>
+                    <div class="state-example">{
+  "session_id": "abc123",
+  "status": "videos_ready",
+  "organized_videos": [
+    {
+      "video_id": "abc123-v1",
+      "status": "validated",
+      "s3_url": "s3://bucket/uploads/abc123-v1.mp4",
+      "converted_url": "s3://bucket/converted/abc123-v1.mp4",
+      "uploaded_at": "2024-11-18T10:15:30Z"
+    }
+  ]
+}</div>
+                </div>
+            </div>
+            
+            <!-- Phase 3: Demo Generation -->
+            <div class="phase-section phase3">
+                <div class="phase-title">
+                    🎬 Phase 3: Demo Generation (Async Processing) 
+                    <span class="time">(2-5 minutes)</span>
+                </div>
+                
+                <div class="services-row">
+                    <div class="service-box">
+                        <div class="service-number">11</div>
+                        <div class="service-title">Job Queue Service</div>
+                        <div class="service-owner">Person 4</div>
+                        <div class="service-desc">
+                            Manages SQS queue for video processing jobs. Handles priorities, retries, and prevents server overload.
+                        </div>
+                        <div class="service-tech">Tech: Python, SQS</div>
+                    </div>
+                    
+                    <div class="service-box">
+                        <div class="service-number">12</div>
+                        <div class="service-title">Slide Creator</div>
+                        <div class="service-owner">Person 4</div>
+                        <div class="service-desc">
+                            Generates intro slide (project name, tagline), transition slides between videos, outro slide (GitHub link, CTA).
+                        </div>
+                        <div class="service-tech">Tech: Node.js, Canvas/ImageMagick</div>
+                    </div>
+                </div>
+                
+                <div class="flow-arrow">↓</div>
+                
+                <div class="services-row">
+                    <div class="service-box critical">
+                        <div class="service-number">13</div>
+                        <div class="service-title">Video Stitcher</div>
+                        <div class="service-owner">Person 4</div>
+                        <div class="service-desc">
+                            <strong>HARDEST SERVICE:</strong> Uses FFmpeg to stitch intro + videos + transitions + outro. Handles audio sync, transitions, effects. Takes 2-5 minutes.
+                        </div>
+                        <div class="service-tech">Tech: Python, FFmpeg (complex)</div>
+                    </div>
+                    
+                    <div class="service-box">
+                        <div class="service-number">14</div>
+                        <div class="service-title">Video Optimizer</div>
+                        <div class="service-owner">Person 4</div>
+                        <div class="service-desc">
+                            Compresses final video to target size (~50MB), optimizes for web playback, generates multiple resolutions.
+                        </div>
+                        <div class="service-tech">Tech: Python, FFmpeg optimization</div>
+                    </div>
+                    
+                    <div class="service-box">
+                        <div class="service-number">15</div>
+                        <div class="service-title">Public Link Generator</div>
+                        <div class="service-owner">Person 4</div>
+                        <div class="service-desc">
+                            Uploads final video to S3, creates CloudFront distribution for fast global delivery, generates shareable public link.
+                        </div>
+                        <div class="service-tech">Tech: Python, S3, CloudFront</div>
+                    </div>
+                </div>
+                
+                <div class="dynamodb-state">
+                    <h3>📦 DynamoDB State After Phase 3:</h3>
+                    <div class="state-example">{
+  "session_id": "abc123",
+  "status": "complete",
+  "final_video_url": "s3://bucket/final/abc123.mp4",
+  "public_link": "https://d123.cloudfront.net/abc123",
+  "video_duration": "180",
+  "file_size": "48MB",
+  "completed_at": "2024-11-18T10:20:15Z"
+}</div>
+                </div>
+            </div>
+            
+            <!-- Phase 4: Support Services -->
+            <div class="phase-section phase4">
+                <div class="phase-title">
+                    🔔 Phase 4: Support Services 
+                    <span class="time">(Throughout)</span>
+                </div>
+                
+                <div class="services-row">
+                    <div class="service-box">
+                        <div class="service-number">16</div>
+                        <div class="service-title">Notification Service</div>
+                        <div class="service-owner">Person 5</div>
+                        <div class="service-desc">
+                            Sends notifications via SNS when demo is ready. Supports email, webhooks, and WebSocket for real-time updates.
+                        </div>
+                        <div class="service-tech">Tech: Node.js, SNS, WebSockets</div>
+                    </div>
+                    
+                    <div class="service-box">
+                        <div class="service-number">17</div>
+                        <div class="service-title">Status Tracker</div>
+                        <div class="service-owner">Person 5</div>
+                        <div class="service-desc">
+                            API endpoint for frontend to poll session status. Returns current phase, progress percentage, estimated completion time.
+                        </div>
+                        <div class="service-tech">Tech: Node.js, DynamoDB queries</div>
+                    </div>
+                    
+                    <div class="service-box">
+                        <div class="service-number">18</div>
+                        <div class="service-title">Cleanup Service</div>
+                        <div class="service-owner">Person 5</div>
+                        <div class="service-desc">
+                            Runs daily: deletes old uploaded videos from S3, archives completed sessions, manages storage costs.
+                        </div>
+                        <div class="service-tech">Tech: Python, S3 Lifecycle, CloudWatch Events</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Infrastructure -->
+            <div class="infrastructure">
+                <div class="infra-box">
+                    <div class="infra-icon">🗄️</div>
+                    <div class="infra-title">DynamoDB</div>
+                    <div class="infra-desc">Sessions Table<br/>Central state management</div>
+                </div>
+                
+                <div class="infra-box">
+                    <div class="infra-icon">🪣</div>
+                    <div class="infra-title">S3 Bucket</div>
+                    <div class="infra-desc">Video storage<br/>Uploads, converted, final</div>
+                </div>
+                
+                <div class="infra-box">
+                    <div class="infra-icon">📬</div>
+                    <div class="infra-title">SQS</div>
+                    <div class="infra-desc">Job queue<br/>Async processing</div>
+                </div>
+                
+                <div class="infra-box">
+                    <div class="infra-icon">🔔</div>
+                    <div class="infra-title">SNS</div>
+                    <div class="infra-desc">Notifications<br/>User alerts</div>
+                </div>
+            </div>
+            
+        </div>
+        
+        <!-- Key Insights -->
+        <div style="margin-top: 40px; padding: 30px; background: #F7FAFC; border-radius: 15px;">
+            <h2 style="margin-bottom: 20px; color: #2d3748;">🔑 Key Architectural Insights</h2>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div style="background: white; padding: 20px; border-radius: 10px; border-left: 4px solid #3182CE;">
+                    <h3 style="color: #3182CE; margin-bottom: 10px;">📊 DynamoDB = Central Nervous System</h3>
+                    <p style="color: #4a5568; line-height: 1.6;">
+                        Every service reads current state, performs work, writes new state. The session record evolves from initialization to completion, tracking the entire journey.
+                    </p>
+                </div>
+                
+                <div style="background: white; padding: 20px; border-radius: 10px; border-left: 4px solid #805AD5;">
+                    <h3 style="color: #805AD5; margin-bottom: 10px;">🔄 Async Processing</h3>
+                    <p style="color: #4a5568; line-height: 1.6;">
+                        Phases 1-2 are synchronous (quick). Phase 3 uses SQS for async processing because video stitching takes 2-5 minutes. Frontend polls status.
+                    </p>
+                </div>
+                
+                <div style="background: white; padding: 20px; border-radius: 10px; border-left: 4px solid #DD6B20;">
+                    <h3 style="color: #DD6B20; margin-bottom: 10px;">⚠️ Critical Path</h3>
+                    <p style="color: #4a5568; line-height: 1.6;">
+                        <strong>Service 4 (AI):</strong> Brain of the system - generates ideas<br/>
+                        <strong>Service 13 (Stitcher):</strong> Hardest to implement - FFmpeg complexity
+                    </p>
+                </div>
+                
+                <div style="background: white; padding: 20px; border-radius: 10px; border-left: 4px solid #38B2AC;">
+                    <h3 style="color: #38B2AC; margin-bottom: 10px;">👥 Team Coordination</h3>
+                    <p style="color: #4a5568; line-height: 1.6;">
+                        <strong>Day 1:</strong> Agree on DynamoDB schema, session format, and status codes. Each person deploys independently but shares the same table.
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Person 2 Responsibilities -->
+        <div style="margin-top: 30px; padding: 30px; background: linear-gradient(135deg, #FFF5E6 0%, #FFE7CC 100%); border-radius: 15px; border: 3px solid #DD6B20;">
+            <h2 style="margin-bottom: 20px; color: #DD6B20;">👤 Your Responsibilities (Person 2)</h2>
+            
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
+                <div style="background: white; padding: 20px; border-radius: 10px;">
+                    <h3 style="color: #DD6B20; margin-bottom: 10px;">Service 6</h3>
+                    <h4 style="color: #2d3748; margin-bottom: 8px;">Session Creator</h4>
+                    <p style="color: #4a5568; font-size: 0.9em;">Generate session ID, create initial DynamoDB record</p>
+                    <p style="margin-top: 10px; font-size: 0.85em; color: #718096;"><strong>Effort:</strong> 2-3 hours</p>
+                </div>
+                
+                <div style="background: white; padding: 20px; border-radius: 10px; border: 2px solid #E53E3E;">
+                    <h3 style="color: #E53E3E; margin-bottom: 10px;">Service 4 ⚠️</h3>
+                    <h4 style="color: #2d3748; margin-bottom: 8px;">AI Suggestions</h4>
+                    <p style="color: #4a5568; font-size: 0.9em;"><strong>CRITICAL:</strong> Call Gemini AI, generate 2-3 video suggestions</p>
+                    <p style="margin-top: 10px; font-size: 0.85em; color: #718096;"><strong>Effort:</strong> 6-8 hours</p>
+                </div>
+                
+                <div style="background: white; padding: 20px; border-radius: 10px;">
+                    <h3 style="color: #DD6B20; margin-bottom: 10px;">Service 5</h3>
+                    <h4 style="color: #2d3748; margin-bottom: 8px;">Organizer</h4>
+                    <p style="color: #4a5568; font-size: 0.9em;">Add video IDs, ordering, status tracking to suggestions</p>
+                    <p style="margin-top: 10px; font-size: 0.85em; color: #718096;"><strong>Effort:</strong> 2-3 hours</p>
+                </div>
+            </div>
+            
+            <div style="margin-top: 20px; padding: 15px; background: white; border-radius: 8px;">
+                <strong style="color: #DD6B20;">Total Estimated Effort:</strong> 10-14 hours over Days 2-5 (Nov 18-21)
+            </div>
+        </div>
+        
+        <div style="margin-top: 30px; text-align: center; color: #718096; font-size: 0.9em;">
+            <p>Created for AI Demo Builder Team | 18-Day Sprint | Dec 5-6 Presentation</p>
+        </div>
+    </div>
+</body>
+</html>
