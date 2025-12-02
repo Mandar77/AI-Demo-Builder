@@ -1,7 +1,3 @@
-# My Services - AWS Lambda Microservices
-
-This directory contains 4 independent AWS Lambda microservices that work together to analyze GitHub repositories.
-
 ## Services Overview
 
 ### Service 1: GitHub Repository Fetcher
@@ -62,30 +58,6 @@ my-services/
 │
 └── README.md                         # This file
 ```
-
-## Design Principles
-
-✅ **Each service is completely independent**
-- Own folder with all necessary files
-- Own dependencies (requirements.txt)
-- No cross-service imports
-
-✅ **Uniform interface standard**
-- All services use same Lambda handler signature
-- Standard response format: `{"statusCode": 200, "body": {...}}`
-- Consistent error handling
-
-✅ **Zero dependency conflicts**
-- Each service manages its own dependencies
-- No shared code between services
-- Easy to merge with other team members' services
-
-✅ **Easy to integrate**
-- API Gateway endpoint for frontend integration
-- Documented input/output formats in API_GATEWAY_INFO_EN.md
-- Services can be called independently or chained together
-
-## Quick Start
 
 ### Local Testing
 
@@ -178,71 +150,4 @@ This document includes:
 
 ### Service 4
 - `DYNAMODB_TABLE`: DynamoDB table name (default: `ai-demo-cache`)
-
-## Team Integration
-
-This structure is designed for easy integration with other team members' services:
-
-- **No conflicts**: Each person works in their own folder
-- **Clear interfaces**: API Gateway endpoint documented for frontend integration
-- **Independent deployment**: Each service deployed separately
-- **Easy merging**: Simply combine folders when ready
-
-### Example Team Structure
-
-```
-final-repo/
-├── person1-services/           # My services
-│   ├── service1-github-fetcher/
-│   ├── service2-readme-parser/
-│   ├── service3-project-analyzer/
-│   └── service4-cache-service/
-│
-├── person2-services/           # Person 2's services
-│   └── service5-...
-│
-└── person3-services/           # Person 3's services
-    └── service6-...
-```
-
-## Error Handling
-
-All services follow a consistent error handling pattern:
-
-- **200**: Success
-- **400**: Bad Request (invalid input)
-- **401**: Unauthorized (Service 1 - GitHub token)
-- **403**: Forbidden (Service 1 - Rate limit)
-- **404**: Not Found (Service 1 - Repository)
-- **500**: Internal Server Error
-- **503**: Service Unavailable (Service 4 - DynamoDB table not found)
-
-## Testing
-
-Each service includes a `test_local.py` script for local testing without AWS Lambda environment:
-
-```bash
-cd service1-github-fetcher
-python test_local.py
-```
-
-## Dependencies Summary
-
-| Service | Dependencies |
-|---------|--------------|
-| Service 1 | `requests==2.31.0` |
-| Service 2 | None (standard library) |
-| Service 3 | None (standard library) |
-| Service 4 | `boto3==1.34.0` |
-
-## Notes
-
-- All code comments and documentation are in English
-- Each service is self-contained and can be moved/copied independently
-- Lambda handlers follow AWS Lambda Python runtime conventions
-- Services can be chained together or called independently
-
-## License
-
-This is part of a team project. Each service is designed to be independent and easily integrated.
 
