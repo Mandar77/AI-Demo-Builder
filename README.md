@@ -16,7 +16,6 @@ AI Demo Builder is a cloud-native platform that automatically generates professi
 - 📹 **Automated Video Processing** - FFmpeg-based video stitching and optimization
 - 🔗 **Shareable Public Links** - Instantly shareable demo URLs
 - ☁️ **Serverless Architecture** - 18 microservices on AWS Lambda
-- 💰 **Zero Cost** - Built entirely on AWS Free Tier
 
 ---
 
@@ -60,17 +59,15 @@ User → Frontend (S3) → API Gateway → 18 Lambda Microservices → AWS Data 
 
 ### AWS Services Used
 
-| Service | Purpose | Free Tier |
-|---------|---------|-----------|
-| **Lambda** | Run all 18 microservices | 1M requests/month |
-| **S3** | Video storage + static hosting | 5 GB storage |
-| **DynamoDB** | Session state management | 25 GB storage |
-| **SQS** | Asynchronous job queue | 1M requests/month |
-| **API Gateway** | REST API endpoints | 1M requests/month |
-| **SNS** | Push notifications | 1M publishes/month |
-| **CloudWatch** | Logging and monitoring | 5 GB logs/month |
-
-**Total Cost:** $0 (within free tier for 700+ demos/month)
+| Service | Purpose |
+|---------|---------|
+| **Lambda** | Run all 18 microservices |
+| **S3** | Video storage + static hosting |
+| **DynamoDB** | Session state management |
+| **SQS** | Asynchronous job queue |
+| **API Gateway** | REST API endpoints |
+| **SNS** | Push notifications |
+| **CloudWatch** | Logging and monitoring |
 
 ---
 
