@@ -1,0 +1,7 @@
+# Frontend build outputs
+dist
+dist-ssr
+
+# Frontend specific
+*.local
+
