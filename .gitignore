@@ -56,3 +56,5 @@ node_modules
 # CDK asset staging directory
 .cdk.staging
 cdk.out
+
+ai-suggestions-pipeline/lambdas/service6-session-creator/test_service6.py
