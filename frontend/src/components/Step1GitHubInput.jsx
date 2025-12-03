@@ -19,8 +19,8 @@ function Step1GitHubInput({ onSubmit, initialUrl }) {
 
     setLoading(true)
     try {
-      const { sessionId, suggestions } = await api.analyzeGitHubRepo(githubUrl)
-      onSubmit(githubUrl, sessionId, suggestions)
+      const result = await api.analyzeGitHubRepo(githubUrl)
+      onSubmit(githubUrl, result.sessionId, result.suggestions, result.analysisData)
     } catch (err) {
       setError(err.message || 'Failed to analyze repository. Please try again.')
       console.error('Error analyzing GitHub repo:', err)
