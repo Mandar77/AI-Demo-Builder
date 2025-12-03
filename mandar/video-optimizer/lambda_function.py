@@ -292,7 +292,7 @@ def process_request(event):
                 'download_url': presigned_url,
                 'width': PRESETS[resolution]['width'],
                 'height': PRESETS[resolution]['height'],
-                'duration': output_info['duration'] if output_info else input_info['duration'],
+                'duration': str(output_info['duration']) if output_info else str(input_info['duration']),
                 'file_size': output_info['file_size'] if output_info else 0
             })
             
@@ -315,7 +315,7 @@ def process_request(event):
         result = {
             'session_id': session_id,
             'input_key': input_key,
-            'input_duration': input_info['duration'],
+            'input_duration': str(input_info['duration']),
             'input_resolution': f"{input_info['width']}x{input_info['height']}",
             'outputs': outputs,
             'thumbnail': thumbnail_info,

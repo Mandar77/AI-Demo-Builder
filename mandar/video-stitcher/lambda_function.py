@@ -339,7 +339,7 @@ def process_request(event):
             'session_id': session_id,
             'output_key': output_s3_key,
             'output_url': f"s3://{BUCKET_NAME}/{output_s3_key}",
-            'duration': output_info['duration'],
+            'duration': str(output_info['duration']),
             'resolution': f"{output_info['width']}x{output_info['height']}",
             'items_processed': len(normalized_videos),
             'created_at': datetime.utcnow().isoformat()
