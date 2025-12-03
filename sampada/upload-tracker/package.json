@@ -1,8 +1,0 @@
-{
-  "name": "upload-tracker",
-  "version": "1.0.0",
-  "dependencies": {
-    "@aws-sdk/client-dynamodb": "^3.450.0",
-    "@aws-sdk/util-dynamodb": "^3.450.0"
-  }
-}

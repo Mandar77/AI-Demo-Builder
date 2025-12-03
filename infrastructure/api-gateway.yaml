@@ -1,0 +1,10 @@
+Resources:
+  UploadUrlResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      PathPart: upload-url
+      
+  UploadStatusResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      PathPart: upload-status
