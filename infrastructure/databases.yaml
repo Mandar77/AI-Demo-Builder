@@ -1,0 +1,46 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'DynamoDB Tables for AI Demo Builder'
+
+Resources:
+  SessionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: Sessions
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: expires_at
+        Enabled: true
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+
+  JobQueueTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: JobQueue
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: job_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: job_id
+          KeyType: HASH
+
+Outputs:
+  SessionsTableName:
+    Description: Sessions DynamoDB Table Name
+    Value: !Ref SessionsTable
+    Export:
+      Name: !Sub '${AWS::StackName}-SessionsTable'
+  
+  SessionsTableArn:
+    Description: Sessions DynamoDB Table ARN
+    Value: !GetAtt SessionsTable.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-SessionsTableArn'
+

@@ -5,8 +5,6 @@ AWSCLIV2.msi
 # IDE
 .vscode/
 .idea/
-*.swp
-*.swo
 
 # Environment files
 .env
@@ -66,3 +64,47 @@ ffmpeg-layer.zip
 # Temporary files
 /tmp/
 *.tmp
+*.temp
+
+# Test files (local testing)
+test_local.py
+test-local.py
+test_local.js
+test-local.js
+*_test.py
+*_test.js
+
+# Frontend build outputs
+frontend/dist/
+frontend/dist-ssr/
+frontend/build/
+
+# Temporary documentation files
+*.html
+!frontend/index.html
+
+# Editor files
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# Coverage reports
+.coverage
+htmlcov/
+*.cover
+.pytest_cache/
+.coverage.*
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json

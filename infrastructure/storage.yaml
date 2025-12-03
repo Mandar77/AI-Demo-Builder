@@ -1,0 +1,55 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'S3 Storage for AI Demo Builder'
+
+Resources:
+  VideoStorageBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: cs6620-ai-demo-builder
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - '*'
+            AllowedMethods:
+              - GET
+              - PUT
+              - POST
+              - HEAD
+            AllowedOrigins:
+              - '*'
+            MaxAge: 3600
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldVideos
+            Status: Enabled
+            ExpirationInDays: 30
+      VersioningConfiguration:
+        Status: Enabled
+
+  VideoStorageBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref VideoStorageBucket
+      PolicyDocument:
+        Statement:
+          - Sid: PublicReadGetObject
+            Effect: Allow
+            Principal: '*'
+            Action: 's3:GetObject'
+            Resource: !Sub '${VideoStorageBucket}/*'
+            Condition:
+              StringLike:
+                's3:prefix': 'demos/*'
+
+Outputs:
+  BucketName:
+    Description: S3 Bucket Name
+    Value: !Ref VideoStorageBucket
+    Export:
+      Name: !Sub '${AWS::StackName}-BucketName'
+
