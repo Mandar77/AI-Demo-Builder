@@ -15,11 +15,24 @@ export const api = {
       })
 
       if (!analyzeResponse.ok) {
-        const errorData = await analyzeResponse.json().catch(() => ({}))
-        throw new Error(errorData.error || `Failed to analyze GitHub repository: ${analyzeResponse.status}`)
+        let errorData = {}
+        try {
+          const text = await analyzeResponse.text()
+          errorData = text ? JSON.parse(text) : {}
+        } catch (e) {
+          console.error('Error parsing error response:', e)
+        }
+        throw new Error(errorData.error || errorData.message || `Failed to analyze GitHub repository: ${analyzeResponse.status}`)
       }
 
-      const analyzeData = await analyzeResponse.json()
+      let analyzeData
+      try {
+        const text = await analyzeResponse.text()
+        analyzeData = text ? JSON.parse(text) : {}
+      } catch (e) {
+        console.error('Error parsing response:', e)
+        throw new Error('Invalid response from server')
+      }
       
       // Check if this is the new format (with session_id) or old format (just analysis data)
       if (analyzeData.session_id) {
