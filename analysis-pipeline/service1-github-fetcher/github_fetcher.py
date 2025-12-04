@@ -9,6 +9,18 @@ import re
 import requests
 from typing import Dict, Any, Optional
 
+# Fix SSL certificate path for Lambda environment
+try:
+    import certifi
+    # Set certificate bundle path for requests
+    cert_path = certifi.where()
+    if os.path.exists(cert_path):
+        os.environ['REQUESTS_CA_BUNDLE'] = cert_path
+        os.environ['SSL_CERT_FILE'] = cert_path
+except (ImportError, Exception) as e:
+    # Fallback: use system certificates or disable verification (not recommended for production)
+    pass
+
 try:
     import boto3
     from botocore.exceptions import ClientError
@@ -69,7 +81,14 @@ def fetch_repository_info(owner: str, repo: str, token: str = None) -> Dict[str,
         headers['Authorization'] = f'token {token}'
     
     print(f"[Service1] Fetching repository info: {owner}/{repo}")
-    response = requests.get(url, headers=headers)
+    # Use system certificates or certifi if available
+    verify_ssl = True
+    try:
+        import certifi
+        verify_ssl = certifi.where()
+    except ImportError:
+        pass
+    response = requests.get(url, headers=headers, verify=verify_ssl, timeout=30)
     
     if response.status_code == 404:
         raise Exception("Repository not found")
@@ -107,7 +126,14 @@ def fetch_readme(owner: str, repo: str, token: str = None) -> str:
         headers['Authorization'] = f'token {token}'
     
     print(f"[Service1] Fetching README: {owner}/{repo}")
-    response = requests.get(url, headers=headers)
+    # Use system certificates or certifi if available
+    verify_ssl = True
+    try:
+        import certifi
+        verify_ssl = certifi.where()
+    except ImportError:
+        pass
+    response = requests.get(url, headers=headers, verify=verify_ssl, timeout=30)
     
     if response.status_code == 404:
         # README not found is not critical, return empty string
@@ -228,7 +254,7 @@ def call_service2_parse_readme(readme: str) -> Dict[str, Any]:
         Parsed README data from Service 2
     """
     payload = {"readme": readme}
-    return invoke_lambda_service('service2-readme-parser', payload)
+    return invoke_lambda_service('service-2-readme-parser', payload)
 
 
 def call_service3_analyze_project(github_data: Dict[str, Any], parsed_readme: Dict[str, Any]) -> Dict[str, Any]:
@@ -249,7 +275,7 @@ def call_service3_analyze_project(github_data: Dict[str, Any], parsed_readme: Di
         "github_data": github_data_for_service3,
         "parsed_readme": parsed_readme
     }
-    return invoke_lambda_service('service3-project-analyzer', payload)
+    return invoke_lambda_service('service-3-project-analyzer', payload)
 
 
 def call_service4_get_cache(key: str) -> Optional[Dict[str, Any]]:
@@ -267,7 +293,7 @@ def call_service4_get_cache(key: str) -> Optional[Dict[str, Any]]:
             "operation": "get",
             "key": key
         }
-        result = invoke_lambda_service('service4-cache-service', payload)
+        result = invoke_lambda_service('service-4-cache-service', payload)
         
         if result.get('found'):
             print(f"[Service1] ✅ Cache hit for key: {key}")

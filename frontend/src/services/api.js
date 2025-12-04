@@ -1,109 +1,115 @@
-// Use the actual API Gateway URL from analysis pipeline
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://dez4stbz65.execute-api.us-west-1.amazonaws.com/prod'
+import axios from 'axios';
 
-export const api = {
-  // Submit GitHub URL and get AI suggestions
-  async analyzeGitHubRepo(githubUrl) {
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
+// Create axios instance with default config
+const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Add response interceptor for error handling
+apiClient.interceptors.response.use(
+  response => response.data,
+  error => {
+    const errorMessage = error.response?.data?.error || error.message || 'An error occurred';
+    console.error('API Error:', errorMessage);
+    return Promise.reject(new Error(errorMessage));
+  }
+);
+
+const api = {
+  // Step 1: Analyze GitHub repository and create session
+  async analyzeGitHub(githubUrl) {
     try {
-      // First, call the analyze endpoint to get GitHub data
-      const analyzeResponse = await fetch(`${API_BASE_URL}/analyze`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ github_url: githubUrl }),
-      })
-
-      if (!analyzeResponse.ok) {
-        const errorData = await analyzeResponse.json().catch(() => ({}))
-        throw new Error(errorData.error || `Failed to analyze GitHub repository: ${analyzeResponse.status}`)
-      }
-
-      const analyzeData = await analyzeResponse.json()
+      const response = await apiClient.post('/analyze', { github_url: githubUrl });
       
       // Check if this is the new format (with session_id) or old format (just analysis data)
-      if (analyzeData.session_id) {
-        // Service 6 format - already has session_id and suggestions
+      if (response.session_id) {
+        // New format - already has session_id and suggestions
         return {
-          sessionId: analyzeData.session_id,
-          suggestions: analyzeData.suggestions?.videos || analyzeData.suggestions || [],
-          analysisData: analyzeData, // Include full analysis data for display
-        }
+          sessionId: response.session_id,
+          suggestions: response.suggestions?.videos || response.suggestions || [],
+          analysisData: response, // Include full analysis data for display
+        };
       } else {
-        // Old format - only has analysis data, need to create session
-        // For now, generate a temporary session ID and create mock suggestions
-        // TODO: Call Service 6 to create session and get AI suggestions
-        const sessionId = `temp-${Date.now()}`
-        const projectAnalysis = analyzeData.project_analysis || {}
-        const suggestedSegments = projectAnalysis.suggestedSegments || 3
+        // Old format - only has analysis data
+        const projectAnalysis = response.project_analysis || {};
+        const suggestedSegments = projectAnalysis.suggestedSegments || 3;
         
         // Create mock suggestions based on analysis
         const suggestions = Array.from({ length: suggestedSegments }, (_, i) => ({
-          id: i + 1,
+          id: `suggestion_${i + 1}`,
           title: `Video ${i + 1}`,
           description: `Record ${projectAnalysis.keyFeatures?.[i] || 'feature'} demonstration`,
           duration: 15,
-        }))
+        }));
+        
+        // Create session with the analysis data
+        const sessionData = {
+          github_url: githubUrl,
+          project_name: projectAnalysis.projectName || 'Unknown Project',
+          analysis: response,
+        };
+        
+        const sessionResponse = await apiClient.post('/session', sessionData);
         
         return {
-          sessionId,
+          sessionId: sessionResponse.session_id,
           suggestions,
-          analysisData: analyzeData, // Include full analysis data for display
-        }
+          analysisData: response,
+        };
       }
     } catch (error) {
-      console.error('Error in analyzeGitHubRepo:', error)
-      throw error
+      console.error('Error in analyzeGitHub:', error);
+      throw error;
     }
   },
 
-  // Get upload URL for a specific video
-  async getUploadUrl(sessionId, suggestionId) {
-    const response = await fetch(`${API_BASE_URL}/upload-url`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        session_id: sessionId,
-        suggestion_id: suggestionId,
-      }),
-    })
-
-    if (!response.ok) {
-      throw new Error('Failed to get upload URL')
-    }
-
-    const data = await response.json()
-    return data.upload_url
+  // Step 2: Get AI suggestions (Aarzoo's service)
+  async getSuggestions(analysisData) {
+    const response = await apiClient.post('/suggestions', { 
+      analysis: analysisData.project_analysis,
+      readme: analysisData.parsed_readme
+    });
+    return response;
   },
 
-  // Upload video to S3 using presigned URL
-  async uploadVideo(uploadUrl, file) {
-    const response = await fetch(uploadUrl, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'video/mp4',
-      },
-      body: file,
-    })
-
-    if (!response.ok) {
-      throw new Error('Failed to upload video')
-    }
-
-    return true
+  // Step 3: Create session (Aarzoo's service)
+  async createSession(sessionData) {
+    const response = await apiClient.post('/session', sessionData);
+    return response;
   },
 
-  // Get session status
+  // Step 4: Get upload URL (Sampada's service)
+  async getUploadUrl(sessionId, suggestionId, fileName) {
+    const response = await apiClient.post('/upload-url', {
+      session_id: sessionId,
+      suggestion_id: suggestionId,
+      file_name: fileName
+    });
+    return response;
+  },
+
+  // Step 5: Check upload status (Sampada's service)
+  async getUploadStatus(sessionId) {
+    const response = await apiClient.get(`/upload-status?session_id=${sessionId}`);
+    return response;
+  },
+
+  // Step 6: Get final demo video (Mandar's service)
+  async getFinalVideo(sessionId) {
+    const response = await apiClient.get(`/demo/${sessionId}`);
+    return response;
+  },
+
+  // Step 7: Get session status (Chang's service)
   async getSessionStatus(sessionId) {
-    const response = await fetch(`${API_BASE_URL}/session/${sessionId}/status`)
+    const response = await apiClient.get(`/status/${sessionId}`);
+    return response;
+  }
+};
 
-    if (!response.ok) {
-      throw new Error('Failed to get session status')
-    }
-
-    return await response.json()
-  },
-}
-
+export default api;
