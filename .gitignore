@@ -164,7 +164,7 @@ develop-eggs/
 downloads/
 eggs/
 .eggs/
-lib/
+# lib/
 lib64/
 parts/
 sdist/
@@ -220,6 +220,7 @@ function.zip
 lambda-layer.zip
 ffmpeg-layer.zip
 deployment-package.zip
+package/
 
 # SAM
 .aws-sam/
