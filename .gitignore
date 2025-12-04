@@ -215,6 +215,8 @@ cover/
 aws-exports.js
 
 # Lambda deployment packages
+**/package/
+**/package.zip
 *.zip
 function.zip
 lambda-layer.zip
@@ -371,3 +373,4 @@ site/
 !requirements.txt
 !env.example
 !.env.example
+ai-suggestions-pipeline/lambdas/service6-session-creator/test_service6.py

@@ -4,17 +4,18 @@ const { DynamoDBDocumentClient, UpdateCommand, GetCommand } = require('@aws-sdk/
 const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
 
 // Initialize AWS clients
-const sqsClient = new SQSClient({ region: process.env.AWS_REGION || 'us-east-1' });
-const ddbClient = new DynamoDBClient({ region: process.env.AWS_REGION || 'us-east-1' });
+const sqsClient = new SQSClient({ region: process.env.AWS_REGION || 'us-west-1' });
+const ddbClient = new DynamoDBClient({ region: process.env.AWS_REGION || 'us-west-1' });
 const docClient = DynamoDBDocumentClient.from(ddbClient);
-const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION || 'us-east-1' });
+const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION || 'us-west-1' });
 
 // Configuration
 const CONFIG = {
     QUEUE_URL: process.env.QUEUE_URL || '',
-    TABLE_NAME: process.env.TABLE_NAME || 'Sessions',
-    VIDEO_STITCHER_FUNCTION: process.env.VIDEO_STITCHER_FUNCTION || 'video-stitcher',
-    VIDEO_OPTIMIZER_FUNCTION: process.env.VIDEO_OPTIMIZER_FUNCTION || 'video-optimizer',
+    TABLE_NAME: process.env.TABLE_NAME || 'ai-demo-sessions',
+    PARTITION_KEY: process.env.PARTITION_KEY || 'project_name',
+    VIDEO_STITCHER_FUNCTION: process.env.VIDEO_STITCHER_FUNCTION || 'service-13-video-stitcher',
+    VIDEO_OPTIMIZER_FUNCTION: process.env.VIDEO_OPTIMIZER_FUNCTION || 'service-14-video-optimizer',
     MAX_CONCURRENT_JOBS: parseInt(process.env.MAX_CONCURRENT_JOBS || '3'),
     JOB_TIMEOUT_MINUTES: parseInt(process.env.JOB_TIMEOUT_MINUTES || '15')
 };
@@ -50,30 +51,69 @@ function generateJobId() {
 }
 
 /**
+ * Update session status in DynamoDB for frontend tracking
+ */
+async function updateSessionStatus(sessionId, status, additionalData = {}) {
+    const updateExprParts = ['#status = :status', 'updated_at = :now'];
+    const exprAttrNames = { '#status': 'status' };
+    const exprAttrValues = {
+        ':status': status,
+        ':now': new Date().toISOString()
+    };
+
+    Object.entries(additionalData).forEach(([key, value], index) => {
+        const attrName = `#attr${index}`;
+        const attrValue = `:val${index}`;
+        updateExprParts.push(`${attrName} = ${attrValue}`);
+        exprAttrNames[attrName] = key;
+        exprAttrValues[attrValue] = typeof value === 'object' ? JSON.stringify(value) : value;
+    });
+
+    const command = new UpdateCommand({
+        TableName: CONFIG.TABLE_NAME,
+        Key: { [CONFIG.PARTITION_KEY]: sessionId },
+        UpdateExpression: 'SET ' + updateExprParts.join(', '),
+        ExpressionAttributeNames: exprAttrNames,
+        ExpressionAttributeValues: exprAttrValues
+    });
+
+    try {
+        await docClient.send(command);
+        console.log(`Status updated: ${sessionId} -> ${status}`);
+    } catch (error) {
+        console.error('DynamoDB update error:', error.message);
+    }
+}
+
+/**
  * Submit a job to the SQS queue
  */
 async function submitJob(jobData) {
     const jobId = generateJobId();
     const timestamp = new Date().toISOString();
-    
+    let priority = jobData.priority || PRIORITIES.NORMAL;
+if (typeof priority === 'string') {
+    priority = PRIORITIES[priority.toUpperCase()] || PRIORITIES.NORMAL;
+}
+
+
     const job = {
         jobId,
         sessionId: jobData.session_id,
         jobType: jobData.job_type || JOB_TYPES.FULL_PIPELINE,
-        priority: jobData.priority || PRIORITIES.NORMAL,
+    priority: priority,
         payload: jobData.payload || {},
         status: JOB_STATUS.QUEUED,
         createdAt: timestamp,
         updatedAt: timestamp
     };
     
-    // Send to SQS with delay based on priority
-    const delaySeconds = Math.min(job.priority * 2, 900); // Max 15 minutes
+    const delaySeconds = job.priority === PRIORITIES.HIGH ? 0 : Math.min(job.priority * 2, 900);
     
     const command = new SendMessageCommand({
         QueueUrl: CONFIG.QUEUE_URL,
         MessageBody: JSON.stringify(job),
-        DelaySeconds: job.priority === PRIORITIES.HIGH ? 0 : delaySeconds,
+        DelaySeconds: delaySeconds,
         MessageAttributes: {
             'JobType': {
                 DataType: 'String',
@@ -92,8 +132,9 @@ async function submitJob(jobData) {
     
     const result = await sqsClient.send(command);
     
-    // Update session in DynamoDB
-    await updateSessionJobStatus(job.sessionId, jobId, JOB_STATUS.QUEUED, {
+    // STATUS UPDATE: queued
+    await updateSessionStatus(job.sessionId, 'queued', {
+        current_job_id: jobId,
         job_type: job.jobType,
         queued_at: timestamp,
         message_id: result.MessageId
@@ -105,95 +146,6 @@ async function submitJob(jobData) {
         status: JOB_STATUS.QUEUED,
         queuedAt: timestamp
     };
-}
-
-/**
- * Process jobs from the queue (called by Lambda trigger or manually)
- */
-async function processJobs(maxJobs = 1) {
-    const processedJobs = [];
-    
-    for (let i = 0; i < maxJobs; i++) {
-        // Receive message from queue
-        const receiveCommand = new ReceiveMessageCommand({
-            QueueUrl: CONFIG.QUEUE_URL,
-            MaxNumberOfMessages: 1,
-            WaitTimeSeconds: 5,
-            MessageAttributeNames: ['All'],
-            VisibilityTimeout: CONFIG.JOB_TIMEOUT_MINUTES * 60
-        });
-        
-        const response = await sqsClient.send(receiveCommand);
-        
-        if (!response.Messages || response.Messages.length === 0) {
-            console.log('No messages in queue');
-            break;
-        }
-        
-        const message = response.Messages[0];
-        const job = JSON.parse(message.Body);
-        
-        console.log(`Processing job: ${job.jobId}`);
-        
-        try {
-            // Update status to processing
-            await updateSessionJobStatus(job.sessionId, job.jobId, JOB_STATUS.PROCESSING, {
-                started_at: new Date().toISOString()
-            });
-            
-            // Process based on job type
-            let result;
-            switch (job.jobType) {
-                case JOB_TYPES.STITCH_VIDEO:
-                    result = await invokeVideoStitcher(job);
-                    break;
-                case JOB_TYPES.OPTIMIZE_VIDEO:
-                    result = await invokeVideoOptimizer(job);
-                    break;
-                case JOB_TYPES.FULL_PIPELINE:
-                    result = await runFullPipeline(job);
-                    break;
-                default:
-                    throw new Error(`Unknown job type: ${job.jobType}`);
-            }
-            
-            // Delete message from queue (job completed)
-            const deleteCommand = new DeleteMessageCommand({
-                QueueUrl: CONFIG.QUEUE_URL,
-                ReceiptHandle: message.ReceiptHandle
-            });
-            await sqsClient.send(deleteCommand);
-            
-            // Update status to completed
-            await updateSessionJobStatus(job.sessionId, job.jobId, JOB_STATUS.COMPLETED, {
-                completed_at: new Date().toISOString(),
-                result
-            });
-            
-            processedJobs.push({
-                jobId: job.jobId,
-                status: JOB_STATUS.COMPLETED,
-                result
-            });
-            
-        } catch (error) {
-            console.error(`Error processing job ${job.jobId}:`, error);
-            
-            // Update status to failed
-            await updateSessionJobStatus(job.sessionId, job.jobId, JOB_STATUS.FAILED, {
-                failed_at: new Date().toISOString(),
-                error: error.message
-            });
-            
-            processedJobs.push({
-                jobId: job.jobId,
-                status: JOB_STATUS.FAILED,
-                error: error.message
-            });
-        }
-    }
-    
-    return processedJobs;
 }
 
 /**
@@ -254,83 +206,146 @@ async function runFullPipeline(job) {
         stages: []
     };
     
+    // STATUS UPDATE: processing
+    await updateSessionStatus(job.sessionId, 'processing', {
+        processing_step: 'Starting video pipeline',
+        pipeline_started_at: new Date().toISOString()
+    });
+    
     // Stage 1: Stitch videos
     console.log(`[${job.jobId}] Stage 1: Stitching videos...`);
+    await updateSessionStatus(job.sessionId, 'processing', {
+        processing_step: 'Stitching videos'
+    });
+    
     const stitchResult = await invokeVideoStitcher(job);
     results.stages.push({ stage: 'stitch', result: stitchResult });
     
+    // Extract output key from stitch result
+    let stitchedVideoKey;
+    if (stitchResult.body) {
+        const body = typeof stitchResult.body === 'string' ? JSON.parse(stitchResult.body) : stitchResult.body;
+        stitchedVideoKey = body.data?.output_key || body.output_key;
+    } else {
+        stitchedVideoKey = stitchResult.data?.output_key || stitchResult.output_key;
+    }
+    
+    if (!stitchedVideoKey) {
+        throw new Error('Video stitcher did not return output_key');
+    }
+    
     // Stage 2: Optimize video
     console.log(`[${job.jobId}] Stage 2: Optimizing video...`);
+    await updateSessionStatus(job.sessionId, 'processing', {
+        processing_step: 'Optimizing video'
+    });
+    
     const optimizePayload = {
         ...job,
         payload: {
             ...job.payload,
-            input_key: stitchResult.body?.output_key || stitchResult.output_key
+            input_key: stitchedVideoKey
         }
     };
     const optimizeResult = await invokeVideoOptimizer(optimizePayload);
     results.stages.push({ stage: 'optimize', result: optimizeResult });
     
-    results.finalVideo = optimizeResult.body?.outputs || optimizeResult.outputs;
+    // Extract final outputs
+    let finalOutputs;
+    if (optimizeResult.body) {
+        const body = typeof optimizeResult.body === 'string' ? JSON.parse(optimizeResult.body) : optimizeResult.body;
+        finalOutputs = body.data?.outputs || body.outputs;
+    } else {
+        finalOutputs = optimizeResult.data?.outputs || optimizeResult.outputs;
+    }
+    
+    results.finalVideo = finalOutputs;
     
     return results;
 }
 
 /**
- * Update session job status in DynamoDB
+ * Process jobs from the queue
  */
-async function updateSessionJobStatus(sessionId, jobId, status, additionalData = {}) {
-    const command = new UpdateCommand({
-        TableName: CONFIG.TABLE_NAME,
-        Key: { session_id: sessionId },
-        UpdateExpression: 'SET #jobs.#jobId = :jobData, #status = :sessionStatus, updated_at = :now',
-        ExpressionAttributeNames: {
-            '#jobs': 'jobs',
-            '#jobId': jobId,
-            '#status': 'status'
-        },
-        ExpressionAttributeValues: {
-            ':jobData': {
-                status,
-                updated_at: new Date().toISOString(),
-                ...additionalData
-            },
-            ':sessionStatus': status === JOB_STATUS.COMPLETED ? 'completed' : 
-                             status === JOB_STATUS.FAILED ? 'failed' : 'processing',
-            ':now': new Date().toISOString()
-        }
-    });
+async function processJobs(maxJobs = 1) {
+    const processedJobs = [];
     
-    try {
-        await docClient.send(command);
-    } catch (error) {
-        // If jobs map doesn't exist, create it
-        if (error.name === 'ValidationException') {
-            const initCommand = new UpdateCommand({
-                TableName: CONFIG.TABLE_NAME,
-                Key: { session_id: sessionId },
-                UpdateExpression: 'SET #jobs = :jobs, #status = :sessionStatus, updated_at = :now',
-                ExpressionAttributeNames: {
-                    '#jobs': 'jobs',
-                    '#status': 'status'
-                },
-                ExpressionAttributeValues: {
-                    ':jobs': {
-                        [jobId]: {
-                            status,
-                            updated_at: new Date().toISOString(),
-                            ...additionalData
-                        }
-                    },
-                    ':sessionStatus': 'processing',
-                    ':now': new Date().toISOString()
-                }
+    for (let i = 0; i < maxJobs; i++) {
+        const receiveCommand = new ReceiveMessageCommand({
+            QueueUrl: CONFIG.QUEUE_URL,
+            MaxNumberOfMessages: 1,
+            WaitTimeSeconds: 5,
+            MessageAttributeNames: ['All'],
+            VisibilityTimeout: CONFIG.JOB_TIMEOUT_MINUTES * 60
+        });
+        
+        const response = await sqsClient.send(receiveCommand);
+        
+        if (!response.Messages || response.Messages.length === 0) {
+            console.log('No messages in queue');
+            break;
+        }
+        
+        const message = response.Messages[0];
+        const job = JSON.parse(message.Body);
+        
+        console.log(`Processing job: ${job.jobId}`);
+        
+        try {
+            // STATUS UPDATE: processing
+            await updateSessionStatus(job.sessionId, 'processing', {
+                current_job_id: job.jobId,
+                started_at: new Date().toISOString()
             });
-            await docClient.send(initCommand);
-        } else {
-            throw error;
+            
+            let result;
+            switch (job.jobType) {
+                case JOB_TYPES.STITCH_VIDEO:
+                    result = await invokeVideoStitcher(job);
+                    break;
+                case JOB_TYPES.OPTIMIZE_VIDEO:
+                    result = await invokeVideoOptimizer(job);
+                    break;
+                case JOB_TYPES.FULL_PIPELINE:
+                    result = await runFullPipeline(job);
+                    break;
+                default:
+                    throw new Error(`Unknown job type: ${job.jobType}`);
+            }
+            
+            // Delete message from queue
+            const deleteCommand = new DeleteMessageCommand({
+                QueueUrl: CONFIG.QUEUE_URL,
+                ReceiptHandle: message.ReceiptHandle
+            });
+            await sqsClient.send(deleteCommand);
+            
+            // STATUS UPDATE: completed (final status set by optimizer)
+            processedJobs.push({
+                jobId: job.jobId,
+                status: JOB_STATUS.COMPLETED,
+                result
+            });
+            
+        } catch (error) {
+            console.error(`Error processing job ${job.jobId}:`, error);
+            
+            // STATUS UPDATE: failed
+            await updateSessionStatus(job.sessionId, 'failed', {
+                current_job_id: job.jobId,
+                error_message: error.message,
+                failed_at: new Date().toISOString()
+            });
+            
+            processedJobs.push({
+                jobId: job.jobId,
+                status: JOB_STATUS.FAILED,
+                error: error.message
+            });
         }
     }
+    
+    return processedJobs;
 }
 
 /**
@@ -361,7 +376,7 @@ async function getQueueStats() {
 async function getJobStatus(sessionId) {
     const command = new GetCommand({
         TableName: CONFIG.TABLE_NAME,
-        Key: { session_id: sessionId }
+        Key: { [CONFIG.PARTITION_KEY]: sessionId }
     });
     
     const response = await docClient.send(command);
@@ -373,7 +388,9 @@ async function getJobStatus(sessionId) {
     return {
         sessionId,
         status: response.Item.status,
-        jobs: response.Item.jobs || {},
+        currentJobId: response.Item.current_job_id,
+        processingStep: response.Item.processing_step,
+        demoUrl: response.Item.demo_url,
         updatedAt: response.Item.updated_at
     };
 }
@@ -395,8 +412,10 @@ async function processRequest(event) {
     
     switch (operation) {
         case 'submit':
+        // Support both project_name and session_id
+        body.session_id = body.project_name || body.session_id;
             if (!body.session_id) {
-                throw new Error('session_id is required');
+                throw new Error('project_name is required');
             }
             return await submitJob(body);
             
@@ -405,11 +424,12 @@ async function processRequest(event) {
             return await processJobs(maxJobs);
             
         case 'status':
-            if (!body.session_id) {
-                throw new Error('session_id is required for status check');
-            }
-            return await getJobStatus(body.session_id);
-            
+            // Support both project_name and session_id
+            const statusSessionId = body.project_name || body.session_id;
+        if (!statusSessionId) {
+        throw new Error('project_name is required for status check');
+    }
+    return await getJobStatus(statusSessionId);    
         case 'stats':
             return await getQueueStats();
             
@@ -419,7 +439,7 @@ async function processRequest(event) {
 }
 
 /**
- * Lambda handler - can be triggered by API Gateway, SQS, or direct invocation
+ * Lambda handler
  */
 exports.handler = async (event, context) => {
     console.log('Job Queue Manager invoked:', JSON.stringify(event, null, 2));
@@ -430,6 +450,11 @@ exports.handler = async (event, context) => {
         for (const record of event.Records) {
             const job = JSON.parse(record.body);
             try {
+                await updateSessionStatus(job.sessionId, 'processing', {
+                    current_job_id: job.jobId,
+                    processing_step: 'Processing from SQS trigger'
+                });
+                
                 let result;
                 switch (job.jobType) {
                     case JOB_TYPES.STITCH_VIDEO:
@@ -442,15 +467,11 @@ exports.handler = async (event, context) => {
                         result = await runFullPipeline(job);
                         break;
                 }
-                await updateSessionJobStatus(job.sessionId, job.jobId, JOB_STATUS.COMPLETED, {
-                    completed_at: new Date().toISOString(),
-                    result
-                });
                 results.push({ jobId: job.jobId, status: 'completed' });
             } catch (error) {
-                await updateSessionJobStatus(job.sessionId, job.jobId, JOB_STATUS.FAILED, {
-                    failed_at: new Date().toISOString(),
-                    error: error.message
+                await updateSessionStatus(job.sessionId, 'failed', {
+                    error_message: error.message,
+                    failed_at: new Date().toISOString()
                 });
                 results.push({ jobId: job.jobId, status: 'failed', error: error.message });
             }

@@ -27,6 +27,7 @@ export const api = {
         return {
           sessionId: analyzeData.session_id,
           suggestions: analyzeData.suggestions?.videos || analyzeData.suggestions || [],
+          analysisData: analyzeData, // Include full analysis data for display
         }
       } else {
         // Old format - only has analysis data, need to create session
@@ -47,6 +48,7 @@ export const api = {
         return {
           sessionId,
           suggestions,
+          analysisData: analyzeData, // Include full analysis data for display
         }
       }
     } catch (error) {

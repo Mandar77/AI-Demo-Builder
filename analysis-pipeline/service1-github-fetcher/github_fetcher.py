@@ -252,6 +252,34 @@ def call_service3_analyze_project(github_data: Dict[str, Any], parsed_readme: Di
     return invoke_lambda_service('service3-project-analyzer', payload)
 
 
+def call_service4_get_cache(key: str) -> Optional[Dict[str, Any]]:
+    """
+    Call Service 4 to get cached result
+    
+    Args:
+        key: Cache key
+        
+    Returns:
+        Cached value if found, None otherwise
+    """
+    try:
+        payload = {
+            "operation": "get",
+            "key": key
+        }
+        result = invoke_lambda_service('service4-cache-service', payload)
+        
+        if result.get('found'):
+            print(f"[Service1] ✅ Cache hit for key: {key}")
+            return result.get('value')
+        else:
+            print(f"[Service1] Cache miss for key: {key}")
+            return None
+    except Exception as e:
+        print(f"[Service1] ⚠️  Cache get failed (non-critical): {str(e)}")
+        return None
+
+
 def call_service4_cache_result(key: str, value: Dict[str, Any], ttl: int = 3600) -> bool:
     """
     Call Service 4 to cache result (optional)
@@ -297,7 +325,45 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     try:
         print(f"[Service1] Starting GitHub fetch service")
         
-        # Step 1: Fetch GitHub data
+        # Extract github_url from event to check cache
+        github_url = None
+        if 'body' in event and isinstance(event.get('body'), str):
+            try:
+                body_data = json.loads(event['body'])
+                github_url = body_data.get('github_url')
+            except (json.JSONDecodeError, TypeError):
+                github_url = None
+        else:
+            github_url = event.get('github_url')
+        
+        # Check cache if we have a github_url
+        if github_url:
+            owner_repo = extract_owner_repo(github_url)
+            if owner_repo:
+                cache_key = f"github_{owner_repo['owner']}_{owner_repo['repo']}"
+                cached_result = call_service4_get_cache(cache_key)
+                
+                if cached_result:
+                    # Cache hit - return cached result immediately
+                    print(f"[Service1] ✅ Returning cached result for {github_url}")
+                    is_api_gateway = 'requestContext' in event or ('body' in event and isinstance(event.get('body'), str))
+                    
+                    if is_api_gateway:
+                        return {
+                            "statusCode": 200,
+                            "headers": {
+                                "Content-Type": "application/json",
+                                "Access-Control-Allow-Origin": "*"
+                            },
+                            "body": json.dumps(cached_result)
+                        }
+                    else:
+                        return {
+                            "statusCode": 200,
+                            "body": cached_result
+                        }
+        
+        # Step 1: Fetch GitHub data (cache miss - proceed with computation)
         github_data = process_request(event)
         
         # Step 2: Call Service 2 to parse README

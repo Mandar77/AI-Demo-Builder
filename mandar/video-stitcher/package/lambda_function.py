@@ -1,7 +1,6 @@
 """
-Video Stitcher Service
-Concatenates videos and slides into a single demo video using FFmpeg.
-Uses the FFmpeg Lambda Layer from sampada/ffmpeg-layer/
+Video Stitcher Service - UPDATED WITH STATUS TRACKING
+Replace your entire lambda_function.py with this version
 """
 
 import os
@@ -17,8 +16,9 @@ s3_client = boto3.client('s3')
 dynamodb = boto3.resource('dynamodb')
 
 # Configuration
-BUCKET_NAME = os.environ.get('BUCKET_NAME', 'ai-demo-builder-bucket')
-TABLE_NAME = os.environ.get('TABLE_NAME', 'Sessions')
+BUCKET_NAME = os.environ.get('BUCKET_NAME', 'cs6620-ai-builder-project')
+TABLE_NAME = os.environ.get('TABLE_NAME', 'ai-demo-sessions')
+PARTITION_KEY = os.environ.get('PARTITION_KEY', 'project_name')
 FFMPEG_PATH = os.environ.get('FFMPEG_PATH', '/opt/bin/ffmpeg')
 FFPROBE_PATH = os.environ.get('FFPROBE_PATH', '/opt/bin/ffprobe')
 
@@ -26,9 +26,40 @@ FFPROBE_PATH = os.environ.get('FFPROBE_PATH', '/opt/bin/ffprobe')
 VIDEO_WIDTH = 1920
 VIDEO_HEIGHT = 1080
 VIDEO_FPS = 30
-SLIDE_DURATION = 3  # seconds each slide displays
+SLIDE_DURATION = 3
 VIDEO_BITRATE = '5M'
 AUDIO_BITRATE = '192k'
+
+
+def update_session_status(session_id, status, additional_data=None):
+    """Update session status in DynamoDB for frontend tracking"""
+    table = dynamodb.Table(TABLE_NAME)
+    
+    update_expr = 'SET #status = :status, updated_at = :now'
+    expr_names = {'#status': 'status'}
+    expr_values = {
+        ':status': status,
+        ':now': datetime.utcnow().isoformat()
+    }
+    
+    if additional_data:
+        for key, value in additional_data.items():
+            # Convert floats to strings for DynamoDB
+            if isinstance(value, float):
+                value = str(value)
+            update_expr += f', {key} = :{key}'
+            expr_values[f':{key}'] = value
+    
+    try:
+        table.update_item(
+            Key={PARTITION_KEY: session_id},
+            UpdateExpression=update_expr,
+            ExpressionAttributeNames=expr_names,
+            ExpressionAttributeValues=expr_values
+        )
+        print(f"Status updated: {session_id} -> {status}")
+    except Exception as e:
+        print(f"Warning: Could not update DynamoDB: {e}")
 
 
 def get_video_info(video_path):
@@ -48,7 +79,6 @@ def get_video_info(video_path):
         
         duration = float(info.get('format', {}).get('duration', 0))
         
-        # Get video stream info
         video_stream = None
         audio_stream = None
         for stream in info.get('streams', []):
@@ -91,7 +121,7 @@ def create_video_from_slide(slide_path, output_path, duration=SLIDE_DURATION):
     """Convert a slide image to a video clip with specified duration"""
     cmd = [
         FFMPEG_PATH,
-        '-y',  # Overwrite output
+        '-y',
         '-loop', '1',
         '-i', slide_path,
         '-c:v', 'libx264',
@@ -167,12 +197,10 @@ def add_silent_audio(input_path, output_path):
 
 def concatenate_videos(video_paths, output_path):
     """Concatenate multiple videos using FFmpeg concat demuxer"""
-    # Create concat file
     concat_file = output_path.replace('.mp4', '_concat.txt')
     
     with open(concat_file, 'w') as f:
         for video_path in video_paths:
-            # Escape single quotes in path
             escaped_path = video_path.replace("'", "'\\''")
             f.write(f"file '{escaped_path}'\n")
     
@@ -198,7 +226,6 @@ def concatenate_videos(video_paths, output_path):
     print(f"Concatenating videos: {' '.join(cmd)}")
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
     
-    # Cleanup concat file
     if os.path.exists(concat_file):
         os.remove(concat_file)
     
@@ -209,32 +236,8 @@ def concatenate_videos(video_paths, output_path):
     return output_path
 
 
-def update_session_status(session_id, status, data=None):
-    """Update session status in DynamoDB"""
-    table = dynamodb.Table(TABLE_NAME)
-    
-    update_expr = 'SET #status = :status, updated_at = :now'
-    expr_values = {
-        ':status': status,
-        ':now': datetime.utcnow().isoformat()
-    }
-    expr_names = {'#status': 'status'}
-    
-    if data:
-        update_expr += ', stitcher_result = :data'
-        expr_values[':data'] = data
-    
-    table.update_item(
-        Key={'session_id': session_id},
-        UpdateExpression=update_expr,
-        ExpressionAttributeNames=expr_names,
-        ExpressionAttributeValues=expr_values
-    )
-
-
 def process_request(event):
     """Main processing logic"""
-    # Parse input
     if isinstance(event.get('body'), str):
         body = json.loads(event['body'])
     elif event.get('body'):
@@ -242,15 +245,13 @@ def process_request(event):
     else:
         body = event
     
-    session_id = body.get('session_id')
+# Support both project_name and session_id for compatibility
+    session_id = body.get('project_name') or body.get('session_id')
     if not session_id:
-        raise ValueError('session_id is required')
+        raise ValueError('project_name is required')
     
-    # Get media items (videos and slides)
-    # Expected format: list of {type: 'video'|'slide', key: 's3_key', order: int}
     media_items = body.get('media_items', [])
     
-    # Alternatively accept separate videos and slides lists
     if not media_items:
         videos = body.get('videos', [])
         slides = body.get('slides', [])
@@ -270,17 +271,19 @@ def process_request(event):
     if not media_items:
         raise ValueError('media_items, videos, or slides are required')
     
-    # Sort by order
     media_items.sort(key=lambda x: x.get('order', 0))
     
     print(f"Processing {len(media_items)} media items for session {session_id}")
     
-    # Create temp directory
+    # STATUS UPDATE: stitching
+    update_session_status(session_id, 'stitching', {
+        'stitching_started_at': datetime.utcnow().isoformat(),
+        'total_items': len(media_items)
+    })
+    
     work_dir = tempfile.mkdtemp()
     
     try:
-        update_session_status(session_id, 'stitching')
-        
         normalized_videos = []
         
         for idx, item in enumerate(media_items):
@@ -290,7 +293,13 @@ def process_request(event):
             if not s3_key:
                 continue
             
-            # Download from S3
+            # STATUS UPDATE: processing item X of Y
+            update_session_status(session_id, 'stitching', {
+                'current_item': idx + 1,
+                'total_items': len(media_items),
+                'processing_step': f'Processing {item_type} {idx + 1}/{len(media_items)}'
+            })
+            
             ext = '.png' if item_type == 'slide' else '.mp4'
             local_path = os.path.join(work_dir, f'input_{idx}{ext}')
             download_from_s3(s3_key, local_path)
@@ -298,18 +307,12 @@ def process_request(event):
             normalized_path = os.path.join(work_dir, f'normalized_{idx}.mp4')
             
             if item_type == 'slide':
-                # Convert slide to video
                 slide_duration = item.get('duration', SLIDE_DURATION)
                 slide_video = os.path.join(work_dir, f'slide_video_{idx}.mp4')
                 create_video_from_slide(local_path, slide_video, slide_duration)
-                
-                # Add silent audio
                 add_silent_audio(slide_video, normalized_path)
             else:
-                # Normalize video
                 normalize_video(local_path, normalized_path)
-                
-                # Check if video has audio, add silent if not
                 info = get_video_info(normalized_path)
                 if not info.get('has_audio'):
                     temp_with_audio = os.path.join(work_dir, f'with_audio_{idx}.mp4')
@@ -322,16 +325,23 @@ def process_request(event):
         if not normalized_videos:
             raise ValueError('No valid media items to stitch')
         
-        # Concatenate all videos
+        # STATUS UPDATE: concatenating
+        update_session_status(session_id, 'stitching', {
+            'processing_step': 'Concatenating all videos'
+        })
+        
         output_filename = f"stitched_{session_id}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.mp4"
         output_path = os.path.join(work_dir, output_filename)
         
         concatenate_videos(normalized_videos, output_path)
         
-        # Get output video info
         output_info = get_video_info(output_path)
         
-        # Upload to S3
+        # STATUS UPDATE: uploading
+        update_session_status(session_id, 'stitching', {
+            'processing_step': 'Uploading stitched video'
+        })
+        
         output_s3_key = f"output/{session_id}/{output_filename}"
         upload_to_s3(output_path, output_s3_key)
         
@@ -345,12 +355,25 @@ def process_request(event):
             'created_at': datetime.utcnow().isoformat()
         }
         
-        update_session_status(session_id, 'stitched', result)
+        # STATUS UPDATE: stitched (ready for optimization)
+        update_session_status(session_id, 'stitched', {
+            'stitched_video_key': output_s3_key,
+            'stitched_video_duration': str(output_info['duration']),
+            'stitched_video_resolution': f"{output_info['width']}x{output_info['height']}",
+            'stitching_completed_at': datetime.utcnow().isoformat()
+        })
         
         return result
         
+    except Exception as e:
+        # STATUS UPDATE: failed
+        update_session_status(session_id, 'stitching_failed', {
+            'error_message': str(e),
+            'failed_at': datetime.utcnow().isoformat()
+        })
+        raise
+        
     finally:
-        # Cleanup temp directory
         if os.path.exists(work_dir):
             shutil.rmtree(work_dir)
 
@@ -390,19 +413,6 @@ def lambda_handler(event, context):
         
     except Exception as e:
         print(f"Error: {e}")
-        
-        # Try to update session status
-        try:
-            if 'session_id' in str(event):
-                body = event.get('body', event)
-                if isinstance(body, str):
-                    body = json.loads(body)
-                session_id = body.get('session_id')
-                if session_id:
-                    update_session_status(session_id, 'failed', {'error': str(e)})
-        except:
-            pass
-        
         return {
             'statusCode': 500,
             'headers': {

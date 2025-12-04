@@ -1,7 +1,6 @@
 """
-Video Optimizer Service
-Encodes video in multiple resolutions (1080p, 720p) with optimized settings.
-Generates web-optimized MP4 files with fast-start for streaming.
+Video Optimizer Service - UPDATED WITH STATUS TRACKING
+Replace your entire lambda_function.py with this version
 """
 
 import os
@@ -17,8 +16,9 @@ s3_client = boto3.client('s3')
 dynamodb = boto3.resource('dynamodb')
 
 # Configuration
-BUCKET_NAME = os.environ.get('BUCKET_NAME', 'ai-demo-builder-bucket')
-TABLE_NAME = os.environ.get('TABLE_NAME', 'Sessions')
+BUCKET_NAME = os.environ.get('BUCKET_NAME', 'cs6620-ai-builder-project')
+TABLE_NAME = os.environ.get('TABLE_NAME', 'ai-demo-sessions')
+PARTITION_KEY = os.environ.get('PARTITION_KEY', 'project_name')
 FFMPEG_PATH = os.environ.get('FFMPEG_PATH', '/opt/bin/ffmpeg')
 FFPROBE_PATH = os.environ.get('FFPROBE_PATH', '/opt/bin/ffprobe')
 
@@ -52,6 +52,40 @@ PRESETS = {
         'audio_bitrate': '96k'
     }
 }
+
+
+def update_session_status(session_id, status, additional_data=None):
+    """Update session status in DynamoDB for frontend tracking"""
+    table = dynamodb.Table(TABLE_NAME)
+    
+    update_expr = 'SET #status = :status, updated_at = :now'
+    expr_names = {'#status': 'status'}
+    expr_values = {
+        ':status': status,
+        ':now': datetime.utcnow().isoformat()
+    }
+    
+    if additional_data:
+        for key, value in additional_data.items():
+            # Convert floats to strings for DynamoDB
+            if isinstance(value, float):
+                value = str(value)
+            # Handle nested dicts/lists by converting to JSON string if needed
+            if isinstance(value, (dict, list)):
+                value = json.dumps(value)
+            update_expr += f', {key} = :{key}'
+            expr_values[f':{key}'] = value
+    
+    try:
+        table.update_item(
+            Key={PARTITION_KEY: session_id},
+            UpdateExpression=update_expr,
+            ExpressionAttributeNames=expr_names,
+            ExpressionAttributeValues=expr_values
+        )
+        print(f"Status updated: {session_id} -> {status}")
+    except Exception as e:
+        print(f"Warning: Could not update DynamoDB: {e}")
 
 
 def get_video_info(video_path):
@@ -133,25 +167,21 @@ def optimize_video(input_path, output_path, preset_name):
     """Encode video with specified preset"""
     preset = PRESETS.get(preset_name, PRESETS['1080p'])
     
-    # Build FFmpeg command
     cmd = [
         FFMPEG_PATH,
         '-y',
         '-i', input_path,
-        # Video settings
         '-c:v', 'libx264',
-        '-preset', 'medium',  # Balance between speed and quality
+        '-preset', 'medium',
         '-crf', str(preset['crf']),
         '-maxrate', preset['maxrate'],
         '-bufsize', preset['bufsize'],
         '-vf', f"scale={preset['width']}:{preset['height']}:force_original_aspect_ratio=decrease,pad={preset['width']}:{preset['height']}:(ow-iw)/2:(oh-ih)/2:black",
         '-pix_fmt', 'yuv420p',
-        # Audio settings
         '-c:a', 'aac',
         '-b:a', preset['audio_bitrate'],
         '-ar', '44100',
         '-ac', '2',
-        # MP4 optimization for web streaming
         '-movflags', '+faststart',
         '-brand', 'mp42',
         output_path
@@ -190,33 +220,8 @@ def generate_thumbnail(input_path, output_path, timestamp='00:00:01'):
     return output_path
 
 
-def update_session_status(session_id, status, data=None):
-    """Update session status in DynamoDB"""
-    table = dynamodb.Table(TABLE_NAME)
-    
-    update_expr = 'SET #status = :status, updated_at = :now'
-    expr_values = {
-        ':status': status,
-        ':now': datetime.utcnow().isoformat()
-    }
-    expr_names = {'#status': 'status'}
-    
-    if data:
-        update_expr += ', optimizer_result = :data, final_outputs = :outputs'
-        expr_values[':data'] = data
-        expr_values[':outputs'] = data.get('outputs', [])
-    
-    table.update_item(
-        Key={'session_id': session_id},
-        UpdateExpression=update_expr,
-        ExpressionAttributeNames=expr_names,
-        ExpressionAttributeValues=expr_values
-    )
-
-
 def process_request(event):
     """Main processing logic"""
-    # Parse input
     if isinstance(event.get('body'), str):
         body = json.loads(event['body'])
     elif event.get('body'):
@@ -224,37 +229,35 @@ def process_request(event):
     else:
         body = event
     
-    session_id = body.get('session_id')
+    # Support both project_name and session_id for compatibility
+    session_id = body.get('project_name') or body.get('session_id')
     if not session_id:
-        raise ValueError('session_id is required')
+        raise ValueError('project_name is required')
     
-    # Input video key (from video stitcher output)
     input_key = body.get('input_key')
     if not input_key:
         raise ValueError('input_key is required')
     
-    # Resolutions to generate (default: 1080p and 720p)
     resolutions = body.get('resolutions', ['1080p', '720p'])
-    
-    # Whether to generate thumbnail
     generate_thumb = body.get('generate_thumbnail', True)
     
     print(f"Optimizing video for session {session_id}")
     print(f"Input: {input_key}")
     print(f"Resolutions: {resolutions}")
     
-    # Create temp directory
+    # STATUS UPDATE: optimizing
+    update_session_status(session_id, 'optimizing', {
+        'optimizing_started_at': datetime.utcnow().isoformat(),
+        'target_resolutions': json.dumps(resolutions)
+    })
+    
     work_dir = tempfile.mkdtemp()
     
     try:
-        update_session_status(session_id, 'optimizing')
-        
-        # Download input video
         input_filename = os.path.basename(input_key)
         input_path = os.path.join(work_dir, input_filename)
         download_from_s3(input_key, input_path)
         
-        # Get input video info
         input_info = get_video_info(input_path)
         if not input_info:
             raise Exception('Could not read input video')
@@ -263,11 +266,15 @@ def process_request(event):
         
         outputs = []
         
-        # Generate each resolution
-        for resolution in resolutions:
+        for idx, resolution in enumerate(resolutions):
             if resolution not in PRESETS:
                 print(f"Warning: Unknown resolution {resolution}, skipping")
                 continue
+            
+            # STATUS UPDATE: encoding resolution
+            update_session_status(session_id, 'optimizing', {
+                'processing_step': f'Encoding {resolution} ({idx + 1}/{len(resolutions)})'
+            })
             
             output_filename = f"demo_{session_id}_{resolution}.mp4"
             output_path = os.path.join(work_dir, output_filename)
@@ -275,14 +282,11 @@ def process_request(event):
             print(f"\nEncoding {resolution}...")
             optimize_video(input_path, output_path, resolution)
             
-            # Get output info
             output_info = get_video_info(output_path)
             
-            # Upload to S3
             s3_key = f"final/{session_id}/{output_filename}"
             upload_to_s3(output_path, s3_key)
             
-            # Generate presigned URL
             presigned_url = generate_presigned_url(s3_key)
             
             outputs.append({
@@ -301,6 +305,11 @@ def process_request(event):
         # Generate thumbnail
         thumbnail_info = None
         if generate_thumb:
+            # STATUS UPDATE: generating thumbnail
+            update_session_status(session_id, 'optimizing', {
+                'processing_step': 'Generating thumbnail'
+            })
+            
             thumbnail_path = os.path.join(work_dir, f"thumbnail_{session_id}.jpg")
             if generate_thumbnail(input_path, thumbnail_path):
                 thumb_s3_key = f"final/{session_id}/thumbnail.jpg"
@@ -311,6 +320,9 @@ def process_request(event):
                     'download_url': generate_presigned_url(thumb_s3_key)
                 }
                 print(f"✓ Thumbnail generated: {thumb_s3_key}")
+        
+        # Get the primary download URL (prefer 720p for sharing)
+        primary_output = next((o for o in outputs if o['resolution'] == '720p'), outputs[0] if outputs else None)
         
         result = {
             'session_id': session_id,
@@ -323,12 +335,26 @@ def process_request(event):
             'completed_at': datetime.utcnow().isoformat()
         }
         
-        update_session_status(session_id, 'completed', result)
+        # STATUS UPDATE: completed
+        update_session_status(session_id, 'completed', {
+            'demo_url': primary_output['download_url'] if primary_output else None,
+            'thumbnail_url': thumbnail_info['download_url'] if thumbnail_info else None,
+            'final_video_key': primary_output['s3_key'] if primary_output else None,
+            'final_video_duration': primary_output['duration'] if primary_output else None,
+            'completed_at': datetime.utcnow().isoformat()
+        })
         
         return result
         
+    except Exception as e:
+        # STATUS UPDATE: failed
+        update_session_status(session_id, 'optimization_failed', {
+            'error_message': str(e),
+            'failed_at': datetime.utcnow().isoformat()
+        })
+        raise
+        
     finally:
-        # Cleanup temp directory
         if os.path.exists(work_dir):
             shutil.rmtree(work_dir)
 
@@ -368,18 +394,6 @@ def lambda_handler(event, context):
         
     except Exception as e:
         print(f"Error: {e}")
-        
-        # Try to update session status
-        try:
-            body = event.get('body', event)
-            if isinstance(body, str):
-                body = json.loads(body)
-            session_id = body.get('session_id')
-            if session_id:
-                update_session_status(session_id, 'optimization_failed', {'error': str(e)})
-        except:
-            pass
-        
         return {
             'statusCode': 500,
             'headers': {
