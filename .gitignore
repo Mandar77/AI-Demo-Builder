@@ -215,11 +215,14 @@ cover/
 aws-exports.js
 
 # Lambda deployment packages
+**/package/
+**/package.zip
 *.zip
 function.zip
 lambda-layer.zip
 ffmpeg-layer.zip
 deployment-package.zip
+!frontend/package.json
 
 # SAM
 .aws-sam/

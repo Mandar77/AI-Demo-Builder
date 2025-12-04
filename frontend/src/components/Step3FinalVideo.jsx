@@ -1,4 +1,13 @@
-function Step4FinalVideo({ finalVideoUrl, processingStatus, onStartOver }) {
+function Step4FinalVideo({ finalVideoUrl, processingStatus, statusData, onStartOver }) {
+  // Extract progress information from statusData
+  // Status Tracker returns: { status, progress: { percentage, message, uploaded, total }, ... }
+  const progress = statusData?.progress || {}
+  const progressPercentage = progress.percentage || 0
+  const progressMessage = progress.message || 'Processing your videos...'
+  const uploadedCount = progress.uploaded || statusData?.uploaded_videos_count || 0
+  const totalVideos = progress.total || statusData?.suggestions_count || 0
+  const currentStatus = statusData?.status || 'processing'
+
   return (
     <div className="max-w-3xl mx-auto text-center">
       <div className="mb-8">
@@ -9,10 +18,44 @@ function Step4FinalVideo({ finalVideoUrl, processingStatus, onStartOver }) {
 
       {processingStatus === 'processing' && (
         <div className="py-12">
-          <div className="inline-block animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-primary-600 mb-4"></div>
-          <p className="text-xl text-gray-700 mb-2">Processing your videos...</p>
-          <p className="text-gray-500">
-            We're stitching your clips together into a polished demo. This may take a few minutes.
+          <div className="inline-block animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-primary-600 mb-6"></div>
+          
+          {/* Status Message */}
+          <p className="text-xl text-gray-700 mb-4 font-semibold">
+            {progressMessage}
+          </p>
+          
+          {/* Progress Bar */}
+          <div className="max-w-md mx-auto mb-4">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm font-medium text-gray-700">
+                {currentStatus === 'uploading' && totalVideos > 0
+                  ? `Uploaded ${uploadedCount} of ${totalVideos} videos`
+                  : 'Processing...'}
+              </span>
+              <span className="text-sm font-medium text-primary-600">
+                {Math.round(progressPercentage)}%
+              </span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+              <div
+                className="bg-primary-600 h-3 rounded-full transition-all duration-500 ease-out"
+                style={{ width: `${progressPercentage}%` }}
+              ></div>
+            </div>
+          </div>
+
+          {/* Additional Status Info */}
+          {currentStatus && (
+            <div className="mt-4">
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-primary-100 text-primary-800">
+                Status: {currentStatus.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+              </span>
+            </div>
+          )}
+
+          <p className="text-gray-500 mt-4">
+            This may take a few minutes. Please keep this page open.
           </p>
         </div>
       )}
@@ -51,9 +94,24 @@ function Step4FinalVideo({ finalVideoUrl, processingStatus, onStartOver }) {
           </div>
           
           <div className="space-y-4">
+            <div className="flex items-center justify-center mb-2">
+              <div className="inline-flex items-center px-4 py-2 rounded-full bg-green-100 text-green-800">
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                <span className="font-semibold">Processing Complete!</span>
+              </div>
+            </div>
             <p className="text-lg text-gray-700">
               🎉 Your demo video is ready!
             </p>
+            
+            {/* Show project info if available */}
+            {statusData?.project_name && (
+              <p className="text-sm text-gray-500">
+                Project: {statusData.project_name}
+              </p>
+            )}
             
             <div className="flex justify-center space-x-4">
               <a

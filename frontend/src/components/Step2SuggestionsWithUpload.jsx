@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Upload, Video, CheckCircle, AlertCircle, Loader } from 'lucide-react';
+import { api } from '../services/api';
 
 function Step2SuggestionsWithUpload({ 
   sessionId, 
@@ -12,16 +13,15 @@ function Step2SuggestionsWithUpload({
   const [uploadProgress, setUploadProgress] = useState({});
   const [errors, setErrors] = useState({});
 
-  // Mock API call - replace with your actual API
+  // Get upload URL from API
   const getUploadUrl = async (sessionId, suggestionId) => {
-    // Replace this with your actual API call
-    const response = await fetch(`/api/upload-url`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ session_id: sessionId, suggestion_id: suggestionId })
-    });
-    const data = await response.json();
-    return data.upload_url;
+    try {
+      const uploadUrl = await api.getUploadUrl(sessionId, suggestionId);
+      return uploadUrl;
+    } catch (error) {
+      console.error('Error getting upload URL:', error);
+      throw new Error('Failed to get upload URL. Please try again.');
+    }
   };
 
   const handleFileSelect = async (suggestion, index) => {
@@ -64,6 +64,10 @@ function Step2SuggestionsWithUpload({
       // Get presigned upload URL
       const uploadUrl = await getUploadUrl(sessionId, suggestionId);
 
+      if (!uploadUrl) {
+        throw new Error('No upload URL received from server');
+      }
+
       // Upload to S3 with progress tracking
       await new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
@@ -79,14 +83,33 @@ function Step2SuggestionsWithUpload({
         });
 
         xhr.addEventListener('load', () => {
-          if (xhr.status === 200) {
+          // S3 PUT requests return 200 on success, but response body might be empty
+          if (xhr.status === 200 || xhr.status === 204) {
             resolve();
           } else {
-            reject(new Error('Upload failed'));
+            let errorMessage = `Upload failed with status ${xhr.status}`;
+            try {
+              const responseText = xhr.responseText;
+              if (responseText) {
+                const errorData = JSON.parse(responseText);
+                errorMessage = errorData.error || errorData.message || errorMessage;
+              }
+            } catch {
+              // If response is not JSON, use status text
+              errorMessage = xhr.statusText || errorMessage;
+            }
+            reject(new Error(errorMessage));
           }
         });
 
-        xhr.addEventListener('error', () => reject(new Error('Upload failed')));
+        xhr.addEventListener('error', () => {
+          reject(new Error('Network error during upload'));
+        });
+
+        xhr.addEventListener('abort', () => {
+          reject(new Error('Upload was cancelled'));
+        });
+
         xhr.open('PUT', uploadUrl);
         xhr.setRequestHeader('Content-Type', 'video/mp4');
         xhr.send(file);
@@ -107,9 +130,10 @@ function Step2SuggestionsWithUpload({
 
     } catch (error) {
       console.error('Upload error:', error);
+      const errorMessage = error.message || 'Failed to upload video';
       setErrors(prev => ({
         ...prev,
-        [suggestionId]: error.message || 'Failed to upload video'
+        [suggestionId]: errorMessage
       }));
     } finally {
       setUploading(prev => ({ ...prev, [suggestionId]: false }));

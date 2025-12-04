@@ -14,6 +14,7 @@ function App() {
   const [uploadedVideos, setUploadedVideos] = useState({})
   const [finalVideoUrl, setFinalVideoUrl] = useState(null)
   const [processingStatus, setProcessingStatus] = useState('idle')
+  const [statusData, setStatusData] = useState(null) // Store full status response
 
   const handleGitHubSubmit = (url, session, suggestionsData, analysisData) => {
     setGithubUrl(url)
@@ -44,15 +45,35 @@ function App() {
         const response = await fetch(
           `${import.meta.env.VITE_API_URL}/session/${sessionId}/status`
         )
-        const data = await response.json()
+        const responseData = await response.json()
         
-        if (data.status === 'completed' && data.final_video_url) {
-          setFinalVideoUrl(data.final_video_url)
-          setProcessingStatus('completed')
-          clearInterval(interval)
-        } else if (data.status === 'failed') {
+        // Handle different response formats
+        // Status Tracker returns: { session_id, status, progress: {...}, ... }
+        // API Gateway might wrap it or return directly
+        const data = responseData.data || responseData
+        
+        // Store full status data for display
+        setStatusData(data)
+        
+        // Extract status and demo URL
+        const status = data.status || 'processing'
+        const demoUrl = data.demo_url || data.final_video_url
+        
+        if (status === 'complete' || status === 'completed') {
+          if (demoUrl) {
+            setFinalVideoUrl(demoUrl)
+            setProcessingStatus('completed')
+            clearInterval(interval)
+          } else {
+            // Still processing, show progress
+            setProcessingStatus('processing')
+          }
+        } else if (status === 'failed') {
           setProcessingStatus('failed')
           clearInterval(interval)
+        } else {
+          // Still processing, show progress
+          setProcessingStatus('processing')
         }
       } catch (error) {
         console.error('Error polling status:', error)
@@ -72,6 +93,7 @@ function App() {
     setUploadedVideos({})
     setFinalVideoUrl(null)
     setProcessingStatus('idle')
+    setStatusData(null)
   }
 
   return (
@@ -203,6 +225,7 @@ function App() {
               <Step4FinalVideo
                 finalVideoUrl={finalVideoUrl}
                 processingStatus={processingStatus}
+                statusData={statusData}
                 onStartOver={handleStartOver}
               />
             </div>
