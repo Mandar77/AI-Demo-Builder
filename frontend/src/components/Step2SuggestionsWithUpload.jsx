@@ -1,33 +1,17 @@
 import React, { useState } from 'react';
-import { Upload, Video, CheckCircle, AlertCircle, Loader } from 'lucide-react';
-import { api } from '../services/api';
+import { Upload, Video, CheckCircle, AlertCircle, Loader, ArrowLeft } from 'lucide-react';
+import api from '../services/api';
 
-function Step2SuggestionsWithUpload({ 
-  sessionId, 
-  suggestions, 
-  onAllVideosUploaded, 
-  onBack 
-}) {
+function Step2SuggestionsWithUpload({ sessionId, suggestions = [], onAllVideosUploaded, onBack }) {
   const [uploadedVideos, setUploadedVideos] = useState({});
   const [uploading, setUploading] = useState({});
   const [uploadProgress, setUploadProgress] = useState({});
   const [errors, setErrors] = useState({});
 
-  // Get upload URL from API
-  const getUploadUrl = async (sessionId, suggestionId) => {
-    try {
-      const uploadUrl = await api.getUploadUrl(sessionId, suggestionId);
-      return uploadUrl;
-    } catch (error) {
-      console.error('Error getting upload URL:', error);
-      throw new Error('Failed to get upload URL. Please try again.');
-    }
-  };
-
   const handleFileSelect = async (suggestion, index) => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = 'video/mp4,video/*';
+    input.accept = 'video/*';
     input.onchange = async (e) => {
       const file = e.target.files[0];
       if (!file) return;
@@ -36,7 +20,7 @@ function Step2SuggestionsWithUpload({
       if (!file.type.startsWith('video/')) {
         setErrors(prev => ({
           ...prev,
-          [suggestion.id || index]: 'Please select a video file'
+          [index]: 'Please select a video file'
         }));
         return;
       }
@@ -44,7 +28,7 @@ function Step2SuggestionsWithUpload({
       if (file.size > 100 * 1024 * 1024) {
         setErrors(prev => ({
           ...prev,
-          [suggestion.id || index]: 'File size must be less than 100MB'
+          [index]: 'File size must be less than 100MB'
         }));
         return;
       }
@@ -55,60 +39,40 @@ function Step2SuggestionsWithUpload({
   };
 
   const uploadVideo = async (suggestion, index, file) => {
-    const suggestionId = suggestion.id || index.toString();
+    const suggestionId = (index + 1).toString();
     setUploading(prev => ({ ...prev, [suggestionId]: true }));
     setErrors(prev => ({ ...prev, [suggestionId]: null }));
     setUploadProgress(prev => ({ ...prev, [suggestionId]: 0 }));
 
     try {
       // Get presigned upload URL
-      const uploadUrl = await getUploadUrl(sessionId, suggestionId);
+      const urlResponse = await api.getUploadUrl(sessionId, suggestionId, file.name);
+      const uploadUrl = urlResponse.upload_url;
 
-      if (!uploadUrl) {
-        throw new Error('No upload URL received from server');
-      }
-
-      // Upload to S3 with progress tracking
+      // Upload to S3 using XMLHttpRequest for progress tracking
       await new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
 
         xhr.upload.addEventListener('progress', (e) => {
           if (e.lengthComputable) {
-            const percentComplete = (e.loaded / e.total) * 100;
+            const percentComplete = Math.round((e.loaded / e.total) * 100);
             setUploadProgress(prev => ({
               ...prev,
-              [suggestionId]: Math.round(percentComplete)
+              [suggestionId]: percentComplete
             }));
           }
         });
 
         xhr.addEventListener('load', () => {
-          // S3 PUT requests return 200 on success, but response body might be empty
-          if (xhr.status === 200 || xhr.status === 204) {
+          if (xhr.status === 200) {
             resolve();
           } else {
-            let errorMessage = `Upload failed with status ${xhr.status}`;
-            try {
-              const responseText = xhr.responseText;
-              if (responseText) {
-                const errorData = JSON.parse(responseText);
-                errorMessage = errorData.error || errorData.message || errorMessage;
-              }
-            } catch {
-              // If response is not JSON, use status text
-              errorMessage = xhr.statusText || errorMessage;
-            }
-            reject(new Error(errorMessage));
+            reject(new Error(`Upload failed with status ${xhr.status}`));
           }
         });
 
-        xhr.addEventListener('error', () => {
-          reject(new Error('Network error during upload'));
-        });
-
-        xhr.addEventListener('abort', () => {
-          reject(new Error('Upload was cancelled'));
-        });
+        xhr.addEventListener('error', () => reject(new Error('Upload failed')));
+        xhr.addEventListener('abort', () => reject(new Error('Upload aborted')));
 
         xhr.open('PUT', uploadUrl);
         xhr.setRequestHeader('Content-Type', 'video/mp4');
@@ -130,33 +94,39 @@ function Step2SuggestionsWithUpload({
 
     } catch (error) {
       console.error('Upload error:', error);
-      const errorMessage = error.message || 'Failed to upload video';
       setErrors(prev => ({
         ...prev,
-        [suggestionId]: errorMessage
+        [suggestionId]: error.message || 'Failed to upload video'
       }));
     } finally {
       setUploading(prev => ({ ...prev, [suggestionId]: false }));
     }
   };
 
-  const allUploaded = suggestions.every((s, i) => {
-    const id = s.id || i.toString();
-    return uploadedVideos[id];
-  });
-
   const uploadedCount = Object.keys(uploadedVideos).length;
-  const progress = (uploadedCount / suggestions.length) * 100;
+  const progress = suggestions.length > 0 ? (uploadedCount / suggestions.length) * 100 : 0;
+
+  if (!suggestions || suggestions.length === 0) {
+    return (
+      <div className="p-8 text-center">
+        <p className="text-gray-500">No suggestions available. Please go back and try again.</p>
+        <button onClick={onBack} className="mt-4 btn-secondary">
+          <ArrowLeft className="w-5 h-5 mr-2" />
+          Go Back
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto p-6">
       {/* Header */}
       <div className="text-center mb-8">
         <h2 className="text-3xl font-bold text-gray-900 mb-3">
-          AI-Generated Demo Suggestions
+          Step 2: Record Your Demo Videos
         </h2>
-        <p className="text-gray-600 mb-4">
-          Review each suggestion and upload the corresponding video clip
+        <p className="text-gray-600 mb-6">
+          Follow each AI suggestion and upload your recorded video clips
         </p>
         
         {/* Progress Bar */}
@@ -165,9 +135,9 @@ function Step2SuggestionsWithUpload({
             <span>{uploadedCount} of {suggestions.length} videos uploaded</span>
             <span>{Math.round(progress)}%</span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
+          <div className="w-full bg-gray-200 rounded-full h-3">
             <div
-              className="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full transition-all duration-500"
+              className="bg-gradient-to-r from-blue-500 to-purple-600 h-3 rounded-full transition-all duration-500"
               style={{ width: `${progress}%` }}
             />
           </div>
@@ -177,7 +147,7 @@ function Step2SuggestionsWithUpload({
       {/* Suggestions with Upload */}
       <div className="space-y-4 mb-8">
         {suggestions.map((suggestion, index) => {
-          const suggestionId = suggestion.id || index.toString();
+          const suggestionId = (index + 1).toString();
           const isUploaded = !!uploadedVideos[suggestionId];
           const isUploading = uploading[suggestionId];
           const uploadProg = uploadProgress[suggestionId] || 0;
@@ -185,7 +155,7 @@ function Step2SuggestionsWithUpload({
 
           return (
             <div
-              key={suggestionId}
+              key={index}
               className={`relative rounded-xl border-2 transition-all duration-300 ${
                 isUploaded
                   ? 'bg-green-50 border-green-300 shadow-lg'
@@ -206,14 +176,12 @@ function Step2SuggestionsWithUpload({
                         {suggestion.title || `Video Segment ${index + 1}`}
                       </h3>
                       <p className="text-gray-700 mb-2">
-                        {suggestion.description || suggestion.text || suggestion}
+                        {suggestion.description || 'Record this segment of your demo'}
                       </p>
                       {suggestion.duration && (
-                        <p className="text-sm text-gray-500">
-                          <span className="inline-flex items-center">
-                            <Video className="w-4 h-4 mr-1" />
-                            Suggested duration: {suggestion.duration} seconds
-                          </span>
+                        <p className="text-sm text-gray-500 flex items-center">
+                          <Video className="w-4 h-4 mr-1" />
+                          Suggested duration: {suggestion.duration} seconds
                         </p>
                       )}
                     </div>
@@ -292,22 +260,20 @@ function Step2SuggestionsWithUpload({
       <div className="flex justify-between items-center">
         <button
           onClick={onBack}
-          className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+          className="btn-secondary flex items-center"
         >
+          <ArrowLeft className="w-5 h-5 mr-2" />
           Back
         </button>
         
-        {allUploaded ? (
+        {uploadedCount === suggestions.length && (
           <button
             onClick={() => onAllVideosUploaded(uploadedVideos)}
-            className="px-8 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg font-semibold hover:from-green-600 hover:to-green-700 shadow-md hover:shadow-lg transition-all transform hover:scale-105"
+            className="btn-primary flex items-center animate-pulse-slow"
           >
-            Process Videos →
+            Process Videos
+            <ArrowRight className="w-5 h-5 ml-2" />
           </button>
-        ) : (
-          <div className="text-gray-500 text-sm">
-            Upload all videos to continue
-          </div>
         )}
       </div>
     </div>
