@@ -14,10 +14,9 @@ function App() {
   const [processingStatus, setProcessingStatus] = useState('idle');
 
   const handleGitHubSubmit = (url, suggestionsData) => {
-    console.log('suggestions in handle github submit ', JSON.stringify(suggestionsData))
     setGithubUrl(url);
     setSessionId(suggestionsData["session_id"]);
-    setSuggestions(suggestionsData);
+    setSuggestions(suggestionsData["videos"]);
     setStep(2);
   };
 

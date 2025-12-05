@@ -128,7 +128,7 @@ function Step2SuggestionsWithUpload({ sessionId, suggestions = [], onAllVideosUp
         <p className="text-gray-600 mb-6">
           Follow each AI suggestion and upload your recorded video clips
         </p>
-        
+
         {/* Progress Bar */}
         <div className="max-w-md mx-auto">
           <div className="flex justify-between text-sm text-gray-600 mb-2">
@@ -156,13 +156,12 @@ function Step2SuggestionsWithUpload({ sessionId, suggestions = [], onAllVideosUp
           return (
             <div
               key={index}
-              className={`relative rounded-xl border-2 transition-all duration-300 ${
-                isUploaded
+              className={`relative rounded-xl border-2 transition-all duration-300 ${isUploaded
                   ? 'bg-green-50 border-green-300 shadow-lg'
                   : isUploading
-                  ? 'bg-blue-50 border-blue-300 shadow-md'
-                  : 'bg-white border-gray-200 hover:shadow-md'
-              }`}
+                    ? 'bg-blue-50 border-blue-300 shadow-md'
+                    : 'bg-white border-gray-200 hover:shadow-md'
+                }`}
             >
               <div className="p-6">
                 {/* Suggestion Header */}
@@ -175,9 +174,45 @@ function Step2SuggestionsWithUpload({ sessionId, suggestions = [], onAllVideosUp
                       <h3 className="text-lg font-semibold text-gray-900 mb-2">
                         {suggestion.title || `Video Segment ${index + 1}`}
                       </h3>
-                      <p className="text-gray-700 mb-2">
-                        {suggestion.description || 'Record this segment of your demo'}
-                      </p>
+
+                      <p> <span className="text-md font-semibold text-gray-900 mb-2">Video Type: </span>{suggestion.video_type}</p>
+                      <br></br>
+
+                      <h4 className="text-md font-semibold text-gray-900 mb-2">Video Recording Instructions: </h4>
+                      <div>
+                        {suggestion.what_to_record && suggestion.what_to_record.length > 0 ? (
+                          suggestion.what_to_record.map((idea, idx) => (
+                            <p key={idx}> {idx + 1}. {idea}</p>
+                          ))
+                        ) : (
+                          <p className="text-gray-500 italic">No recording instructions available.</p>
+                        )}
+                      </div>
+                      <br></br>
+                      {suggestion.key_highlights && (
+                        <>
+                          <h4 className="text-md font-semibold text-gray-900 mb-2">Key Highlights: </h4>
+                          <div>
+                            {suggestion.key_highlights && suggestion.key_highlights.length > 0 ? (
+                              suggestion.key_highlights.map((idea, idx) => (
+                                <p key={idx}> {idx + 1}. {idea}</p>
+                              ))
+                            ) : (
+                              <p className="text-gray-500 italic">No key highlights instructions available.</p>
+                            )}
+                          </div>
+                        </>
+                      )}
+                      <br></br>
+
+                      {suggestion.narration_script && (
+                        <>
+                        <h4 className="text-md font-semibold text-gray-900 mb-2">Example Narration Script: </h4>
+                        <p className="text-sm text-gray-900 flex items-center"> {suggestion.narration_script}</p>
+                        </>
+                      )}
+                      <br></br>
+
                       {suggestion.duration && (
                         <p className="text-sm text-gray-500 flex items-center">
                           <Video className="w-4 h-4 mr-1" />
@@ -186,7 +221,7 @@ function Step2SuggestionsWithUpload({ sessionId, suggestions = [], onAllVideosUp
                       )}
                     </div>
                   </div>
-                  
+
                   {/* Status Icon */}
                   {isUploaded && (
                     <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0 ml-4" />
@@ -208,8 +243,8 @@ function Step2SuggestionsWithUpload({ sessionId, suggestions = [], onAllVideosUp
                         className={`
                           inline-flex items-center px-6 py-3 rounded-lg font-semibold
                           transition-all duration-200 transform hover:scale-105
-                          ${isUploading 
-                            ? 'bg-gray-400 text-white cursor-not-allowed' 
+                          ${isUploading
+                            ? 'bg-gray-400 text-white cursor-not-allowed'
                             : 'bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 shadow-md hover:shadow-lg'
                           }
                         `}
@@ -265,7 +300,7 @@ function Step2SuggestionsWithUpload({ sessionId, suggestions = [], onAllVideosUp
           <ArrowLeft className="w-5 h-5 mr-2" />
           Back
         </button>
-        
+
         {uploadedCount === suggestions.length && (
           <button
             onClick={() => onAllVideosUploaded(uploadedVideos)}
