@@ -4,16 +4,45 @@ import json
 import boto3
 import uuid
 from botocore.exceptions import ClientError
-from dotenv import load_dotenv
 from google import genai
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../shared'))
-from response_utils import success_response, error_response
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    print("Python dotenv module not found. Skipping import.")
+    load_dotenv = None
+
+def success_response(data, status_code=200):
+    """Create success response"""
+    return {
+        'statusCode': status_code,
+        'headers': {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Headers': 'Content-Type',
+            'Access-Control-Allow-Methods': 'GET,POST,OPTIONS'
+        },
+        'body': json.dumps(data)
+    }
+
+def error_response(message, status_code=500):
+    """Create error response"""
+    return {
+        'statusCode': status_code,
+        'headers': {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Headers': 'Content-Type',
+            'Access-Control-Allow-Methods': 'GET,POST,OPTIONS'
+        },
+        'body': json.dumps({'error': message})
+    }
 
 # Initialize AWS clients
 secrets_client = boto3.client('secretsmanager')
+lambda_client = boto3.client('lambda')
 
-# checking if the current running enviornment is AWS or Local
+# checking if the current running environment is AWS or Local
 IS_LAMBDA = bool(os.environ.get('AWS_LAMBDA_FUNCTION_NAME'))
 
 def get_gemini_api_key():
@@ -23,11 +52,19 @@ def get_gemini_api_key():
     Returns:
         str: API key or None if not found
     """
-    api_key = None
-    is_lambda = bool(os.environ.get('AWS_LAMBDA_FUNCTION_NAME'))
+    api_key = os.environ.get('GEMINI_API_KEY')
+
+    if api_key:
+        print(f"[Service 4] ✅ ❌ Found API key in environment variables {api_key}")
+    else:
+        print(f"[Service 4] API key not found in environment variables")
+    
+    print(f"[Service 4] ✅ ❌❌❌ API key in environment variables {api_key}")
+    
+    return api_key
 
     # if testing locally
-    if not is_lambda:
+    if not IS_LAMBDA:
         load_dotenv()
         print(f"[Service 4] Running file on local computer. Fetched the key from .env file")
         api_key = os.environ.get('GEMINI_API_KEY')
@@ -86,6 +123,38 @@ if GEMINI_API_KEY:
 else:
     print("[Service 4] ⚠️ GEMINI_API_KEY not found - will use fallback suggestions")
 
+def invoke_service5_async(session_id, github_data, project_analysis, suggestions, project_metadata):
+    """
+    Asynchronously invoke Service 5 to store session in DynamoDB
+    Fire-and-forget - we don't wait for response
+    """
+    try:
+        service5_function_name = os.environ.get('SERVICE6_FUNCTION_NAME', 'service-6-session-creator')
+        
+        payload = {
+            'session_id': session_id,
+            'github_data': github_data,
+            'project_analysis': project_analysis,
+            'suggestions': suggestions,
+            'project_metadata': project_metadata
+        }
+        
+        print(f"[Service 4] Invoking Service 5 asynchronously: {service5_function_name}")
+        
+        # ASYNC invocation - fire and forget
+        response = lambda_client.invoke(
+            FunctionName=service5_function_name,
+            InvocationType='Event',  # ASYNC - don't wait for response
+            Payload=json.dumps(payload)
+        )
+        
+        print(f"[Service 4] ✅ Service 5 invoked asynchronously (StatusCode: {response['StatusCode']})")
+        
+    except Exception as e:
+        # Log error but don't fail the request - storage is not critical for user response
+        print(f"[Service 4] ⚠️ Failed to invoke Service 5 (non-critical): {str(e)}")
+
+
 def lambda_handler(event, context):
     """
     Service 4: AI Suggestions Service
@@ -95,11 +164,9 @@ def lambda_handler(event, context):
         print("[Service 4] Starting AI Suggestions Generator")
         print(f"[Service 4] Event: {json.dumps(event)}")
 
-
         if 'body' in event:
             # API Gateway Format (Http request)
             print("[Service 4] Processing API Gateway Event")
-            # Convert to dict/json object it is string else keep as it is
             body = json.loads(event['body']) if isinstance(event['body'], str) else event['body']
         else:
             print("[Service 4] Processing direct invocation")
@@ -135,13 +202,13 @@ def lambda_handler(event, context):
         stars = github_data.get('stars', 0)
         language = github_data.get('language', 'Unknown')
         readme_content = github_data.get('readme', '')
-        project_type = project_analysis.get('projecType', 'Unknow')
+        project_type = project_analysis.get('projectType', 'Unknown')
 
         print(f"[Service 4] Project: {owner}/{project_name}")
         print(f"[Service 4] Type: {project_type}, Language: {language}, Stars: {stars}")
 
         # Generate AI suggestions using all available data
-        suggestions = generate_video_suggestions(
+        suggestion_data = generate_video_suggestions(
             project_name=project_name,
             readme_content=readme_content,
             project_type=project_type,
@@ -150,25 +217,39 @@ def lambda_handler(event, context):
             github_data=github_data
         )
 
-        print(f"[Service 4] ✅ Generated {len(suggestions)} video suggestions")
+        print(f"[Service 4] ✅ Generated {len(suggestion_data.get('videos', []))} video suggestions")
 
-        # TODO: Store in the session table
+        # TODO: Invoke Service 5 asynchronously to store in session table
 
-
-        return success_response({
+        response_data =  {
             'session_id': session_id,
             'project_name': project_name,
             'owner': owner,
             'github_url': f"https://github.com/{owner}/{project_name}",
-            'videos': suggestions,
-            'total_suggestions': len(suggestions),
+            'videos': suggestion_data.get('videos', []),
+            'total_suggestions': len(suggestion_data.get('videos', [])),
+            'overall_flow': suggestion_data.get('overall_flow', ''),
+            'total_estimated_duration': suggestion_data.get('total_estimated_duration', ''),
+            'project_specific_tips': suggestion_data.get('project_specific_tips', []),
             'project_metadata': {
-                'type' : project_type,
-                'language' : language,
-                'stars' : stars,
-                'complexity' : project_analysis.get('complexity', 'unknown')
+                'type': project_type,
+                'language': language,
+                'stars': stars,
+                'complexity': project_analysis.get('complexity', 'unknown')
             }
-        })
+        }
+
+        # Asynchronously invoke Service 5 to store session (fire-and-forget)
+        invoke_service5_async(
+            session_id=session_id,
+            github_data=github_data,
+            project_analysis=project_analysis,
+            suggestions=suggestion_data,
+            project_metadata=response_data['project_metadata']
+        )
+
+        return success_response(response_data)
+
     
     except Exception as e:
         print(f"[Service 4] ❌ Error: {str(e)}")
@@ -198,8 +279,8 @@ def generate_video_suggestions(project_name, readme_content, project_type, proje
 
         print("[Service 4] Calling Gemini API...")
         response = client.models.generate_content(
-            model = "gemini-2.0-flash-exp",
-            contents = prompt
+            model="gemini-2.0-flash",
+            contents=prompt
         )
 
         print("[Service 4] ✅ Received response from Gemini")
@@ -215,90 +296,139 @@ def generate_video_suggestions(project_name, readme_content, project_type, proje
         return create_fallback_suggestions(project_name, project_type)
     
 
-def create_gemini_prompt(project_name, readme_content, project_type, project_analysis, parsed_readme, github_data):
-    """
-    Create a detailed prompt for Gemini to generate video suggestions
-    """
-
-    # Truncate README if too long
+def create_gemini_prompt(project_name, readme_content, project_type, 
+                         project_analysis, parsed_readme, github_data):
+    """Create adaptive prompt that works for ANY project type"""
     max_readme_length = 3000
     if len(readme_content) > max_readme_length:
         readme_content = readme_content[:max_readme_length] + "..."
 
-    # Extract useful informtion
     tech_stack = project_analysis.get('techStack', [])
     key_features = project_analysis.get('keyFeatures', [])
     suggested_segments = project_analysis.get('suggestedSegments', 3)
     complexity = project_analysis.get('complexity', 'medium')
-
     features = parsed_readme.get('features', [])
-    has_documentation = parsed_readme.get('hasDocumentation', False)
-
     owner = github_data.get('owner', 'unknown')
     stars = github_data.get('stars', 0)
     language = github_data.get('language', 'Unknown')
     description = github_data.get('description', '')
 
-    tech_stack_str = ' '.join(tech_stack) if tech_stack else 'Not Specified'
+    tech_stack_str = ', '.join(tech_stack) if tech_stack else 'Not Specified'
     key_features_str = '\n- '.join(key_features) if key_features else 'Not Specified'
     features_str = '\n- '.join(features) if features else 'Not Specified'
 
-    prompt = f"""You are expert at creation engaging demo video suggestions for Github projects.
+    prompt = f"""You are an expert at creating detailed video demo scripts for GitHub projects of ANY type.
 
-    PROJECT INFORMATION:
-    - Name: {project_name}
-    - Owner: {owner}
-    - Github Stars: {stars:,}
-    - Primary Language: {language}
-    - Project Type: {project_type}
-    - Complexity: {complexity}
-    - Description: {description}
+PROJECT INFORMATION:
+- Name: {project_name}
+- Owner: {owner}
+- Stars: {stars:,}
+- Language: {language}
+- Type: {project_type}
+- Complexity: {complexity}
+- Description: {description}
 
-    TECHNICAL DETAILS:
-    - Tech Stack: {tech_stack_str}
-    - Key Features: {key_features_str}
+TECHNICAL DETAILS:
+- Tech Stack: {tech_stack_str}
+- Key Features: 
+{key_features_str}
 
-    PARSED README FEATURES:
-    {features_str}
+PARSED README FEATURES:
+{features_str}
 
-    README CONTENT:
-    {readme_content}
+README CONTENT:
+{readme_content}
 
-    TASK:
-    Generate {min(3, suggested_segments)} short demo video suggestions (1-2 minutes each) that would effectively showcase this project to potential users and developers. Also, tell the sequence of the suggestions, example which suggestion should be completed first, followed by which, and so on
+IMPORTANT: Analyze the project type and adapt your suggestions accordingly:
 
-    Consider:
-    1. The project's complexity level ({complexity})
-    2. The target audience (based on stars: {stars:,} and tech stack)
-    3. Key features that should be highlighted
-    4. Whether documentation is available: {has_documentation}
+**For WEB APPLICATIONS:** Focus on UI interactions, user flows, feature demonstrations
+**For LIBRARIES/FRAMEWORKS:** Focus on code examples, API usage, integration steps
+**For CLI TOOLS:** Focus on terminal commands, output examples, use cases
+**For MACHINE LEARNING MODELS:** Focus on running inference, showing results, explaining model behavior
+**For MOBILE APPS:** Focus on app screens, gestures, feature walkthroughs
+**For DATA PROJECTS:** Focus on data loading, transformations, visualizations
+**For BACKEND APIs:** Focus on endpoint testing, request/response examples, Postman/cURL demos
+**For DESKTOP APPS:** Focus on UI features, workflows, settings
 
-    For each video suggestion, provide:
-    1. title: A catchy, descriptive title
-    2. duration: Estimated duration (e.g., "1.5 minutes", "2 minutes")
-    3. description: Brief description of what the video covers
-    4. key_points: List of 3-4 main points to demonstrate
-    5. target_audience: Who would benefit from this video (e.g., "Beginners", "Developers", "Technical Users")
-    6. hook: An attention-grabbing opening line for the video
-    7. script_outline: A brief 3-4 step outline of the video flow
+TASK:
+Create {min(3, suggested_segments)} video suggestions that will be recorded by a user and merged together into a final demo video.
 
-    Return ONLY valid JSON in this exact format (no markdown, no extra text):
-    {{
-        "videos" : [
-         {{
-            "title": "string",
-            "duration":"string",
-            "description":"string",
-            "key_points":["point1", "point2", "point3"],
-            "target_audience":"string",
-            "hook":"string",
-            "script_outline" : ["step1", "step2", "step3"]
-         }}
-        ]
-    }}
+For EACH video, provide SPECIFIC, ACTIONABLE recording instructions adapted to this project's type.
 
-    IMPORTANT: Return only the JSON object, nothing else"""
+EXAMPLES OF GOOD "what_to_record" INSTRUCTIONS:
 
+**Web App Example:**
+- "Navigate to localhost:3000/login"
+- "Enter email: demo@example.com and password: demo123"
+- "Click the Login button"
+- "Show the dashboard loading with user data"
+
+**CLI Tool Example:**
+- "Open terminal in project directory"
+- "Run: python tool.py --input data.csv --output results.json"
+- "Show the processing output in real-time"
+- "Cat the results.json file to show the output"
+
+**ML Model Example:**
+- "Open Jupyter notebook or Python script"
+- "Load the pre-trained model: model = load_model('model.h5')"
+- "Load sample image: img = load_image('cat.jpg')"
+- "Run prediction: result = model.predict(img)"
+- "Show the prediction output with confidence scores"
+
+**Mobile App Example:**
+- "Launch the app on iPhone simulator/Android emulator"
+- "Tap on the + button in bottom right"
+- "Fill in the form fields with sample data"
+- "Swipe left to see the saved item in the list"
+
+For each video, provide:
+{{
+    "videos": [
+        {{
+            "sequence_number": 1,
+            "title": "string - Clear title indicating what will be shown",
+            "duration": "string - e.g., '1.5 minutes'",
+            "video_type": "string - installation|feature_demo|code_example|use_case|advanced_feature",
+            "what_to_record": [
+                "Step 1: Exact action to perform",
+                "Step 2: Next action",
+                "Step 3: What to show/highlight",
+                "etc..."
+            ],
+            "narration_script": "string - What to say during recording (optional voiceover)",
+            "key_highlights": [
+                "Important feature/concept to emphasize",
+                "Another highlight"
+            ],
+            "technical_setup": {{
+                "prerequisites": ["Software needed", "Accounts required", "Data to prepare"],
+                "environment": "Description of environment (browser, terminal, IDE, etc.)",
+                "sample_data": "Any sample data/inputs needed"
+            }},
+            "expected_outcome": "What the viewer should see by the end of this video",
+            "transition_to_next": "How this connects to next video"
+        }}
+    ],
+    "overall_flow": "Brief description of the complete story these videos tell",
+    "total_estimated_duration": "X minutes",
+    "project_specific_tips": [
+        "Recording tip specific to this type of project",
+        "Another relevant tip"
+    ]
+}}
+
+CRITICAL INSTRUCTIONS:
+1. **Adapt to project type** - Don't give web app instructions for a CLI tool!
+2. **Be ultra-specific** - Every command, every URL, every click should be spelled out
+3. **Think chronologically** - Video 1 should set up context, later videos build on it
+4. **Consider the viewer** - They might be seeing this project for the first time
+5. **Make it filmable** - Every instruction should be something that can be screen-recorded
+6. **Include actual values** - Use realistic example data, URLs, commands
+7. **Logical progression** - Each video should naturally lead to the next
+
+Return ONLY valid JSON, nothing else."""
+    
     return prompt
 
 
@@ -320,17 +450,33 @@ def parse_gemini_response(response_text):
         
         # Parse JSON
         data = json.loads(response_text)
+        
+        # Extract all relevant fields
         videos = data.get('videos', [])
+        overall_flow = data.get('overall_flow', '')
+        total_duration = data.get('total_estimated_duration', '')
+        recording_tips = data.get('project_specific_tips', [])
         
         print(f"[Service 4] Parsed {len(videos)} video suggestions from Gemini")
         
-        return videos
+        # Return complete response
+        return {
+            'videos': videos,
+            'overall_flow': overall_flow,
+            'total_estimated_duration': total_duration,
+            'project_specific_tips': recording_tips
+        }
         
     except json.JSONDecodeError as e:
         print(f"[Service 4] ⚠️ Failed to parse Gemini response as JSON: {str(e)}")
         print(f"[Service 4] Raw response: {response_text[:500]}...")
         
-        return extract_suggestions_from_text(response_text)
+        return {
+            'videos': extract_suggestions_from_text(response_text),
+            'overall_flow': '',
+            'total_estimated_duration': '',
+            'project_specific_tips': []
+        }
 
 
 def extract_suggestions_from_text(text):
@@ -348,58 +494,83 @@ def extract_suggestions_from_text(text):
                 suggestions.append(current_suggestion)
             
             current_suggestion = {
+                'sequence_number': len(suggestions) + 1,
                 'title': line.split('.', 1)[-1].strip().strip('-*').strip(),
                 'duration': '1-2 minutes',
-                'description': line.split('.', 1)[-1].strip().strip('-*').strip(),
-                'key_points': [],
-                'target_audience': 'General',
-                'hook': 'Let me show you something interesting',
-                'script_outline': []
+                'video_type': 'feature_demo',
+                'what_to_record': [line.split('.', 1)[-1].strip().strip('-*').strip()],
+                'narration_script': '',
+                'key_highlights': [],
+                'technical_setup': {
+                    'prerequisites': [],
+                    'environment': 'General',
+                    'sample_data': ''
+                },
+                'expected_outcome': '',
+                'transition_to_next': ''
             }
     
     if current_suggestion:
         suggestions.append(current_suggestion)
     
-    return suggestions if suggestions else create_fallback_suggestions("Project", "Unknown")
+    if not suggestions:
+        return create_fallback_suggestions("Project", "Unknown")
+    
+    return suggestions
 
 
 def create_fallback_suggestions(project_name, project_type):
-    """
-    Create generic fallback suggestions if Gemini fails
-    """
-    return [
-        {
-            'title': f'Introduction to {project_name}',
-            'duration': '2 minutes',
-            'description': f'A quick overview of the {project_name} project and its key features',
-            'key_points': [
-                'Project overview',
-                'Main features',
-                'Getting started'
-            ],
-            'target_audience': 'Beginners',
-            'hook': f'Discover what makes {project_name} special',
-            'script_outline': [
-                'Introduction',
-                'Feature demonstration',
-                'Quick start guide'
-            ]
-        },
-        {
-            'title': f'Deep Dive into {project_name}',
-            'duration': '1.5 minutes',
-            'description': f'Exploring the technical aspects of {project_name}',
-            'key_points': [
-                'Architecture overview',
-                'Key components',
-                'Use cases'
-            ],
-            'target_audience': 'Developers',
-            'hook': f'Let\'s explore how {project_name} works under the hood',
-            'script_outline': [
-                'System architecture',
-                'Code walkthrough',
-                'Practical examples'
-            ]
-        }
-    ]
+    """Create generic fallback suggestions if Gemini fails"""
+    return {
+        'videos': [
+            {
+                'sequence_number': 1,
+                'title': f'Introduction to {project_name}',
+                'duration': '2 minutes',
+                'video_type': 'installation',
+                'what_to_record': [
+                    f'Show the {project_name} GitHub repository page',
+                    'Navigate to the README section',
+                    'Highlight the key features mentioned',
+                    'Show the installation instructions'
+                ],
+                'narration_script': f'Welcome to {project_name}. Let\'s start by understanding what this project does and how to get it set up.',
+                'key_highlights': ['Project overview', 'Main features', 'Getting started'],
+                'technical_setup': {
+                    'prerequisites': ['Web browser', 'GitHub account (optional)'],
+                    'environment': 'GitHub website',
+                    'sample_data': 'None required'
+                },
+                'expected_outcome': 'Viewers understand what the project does and basic setup',
+                'transition_to_next': 'Now that we know what it is, let\'s see it in action...'
+            },
+            {
+                'sequence_number': 2,
+                'title': f'Exploring {project_name} Features',
+                'duration': '1.5 minutes',
+                'video_type': 'feature_demo',
+                'what_to_record': [
+                    'Open the project in a code editor or terminal',
+                    'Show the project structure and main files',
+                    'Demonstrate a basic use case or example',
+                    'Highlight the key functionality'
+                ],
+                'narration_script': f'Let\'s dive into {project_name} and see how to actually use it. We\'ll walk through a simple example.',
+                'key_highlights': ['Architecture', 'Key components', 'Practical use'],
+                'technical_setup': {
+                    'prerequisites': ['Project installed/cloned', 'Code editor or terminal'],
+                    'environment': 'Local development environment',
+                    'sample_data': 'Basic example from documentation'
+                },
+                'expected_outcome': 'Viewers can follow along and run a basic example',
+                'transition_to_next': ''
+            }
+        ],
+        'overall_flow': 'Introduction to the project followed by practical demonstration',
+        'total_estimated_duration': '3.5 minutes',
+        'project_specific_tips': [
+            'Keep the demo focused on the most important features',
+            'Use real examples rather than hypothetical scenarios',
+            'Speak clearly and at a moderate pace'
+        ]
+    }
