@@ -83,7 +83,6 @@ const api = {
     const response = await apiClient.post('/ai-video-suggestion', { 
       value: analysisData,
     });
-    console.log("Response in backend ", JSON.stringify(response))
     return response;
   },
 
