@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Upload, Video, CheckCircle, AlertCircle, Loader, ArrowLeft } from 'lucide-react';
+import { Upload, Video, CheckCircle, AlertCircle, Loader, ArrowLeft, Heading2 } from 'lucide-react';
 import api from '../services/api';
 
 function Step2SuggestionsWithUpload({ sessionId, suggestions = [], onAllVideosUploaded, onBack }) {
@@ -171,9 +171,9 @@ function Step2SuggestionsWithUpload({ sessionId, suggestions = [], onAllVideosUp
                       {index + 1}
                     </div>
                     <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                      <h2 className="text-lg font-bold text-gray-900 mb-2">
                         {suggestion.title || `Video Segment ${index + 1}`}
-                      </h3>
+                      </h2>
 
                       <p> <span className="text-md font-semibold text-gray-900 mb-2">Video Type: </span>{suggestion.video_type}</p>
                       <br></br>
@@ -182,7 +182,7 @@ function Step2SuggestionsWithUpload({ sessionId, suggestions = [], onAllVideosUp
                       <div>
                         {suggestion.what_to_record && suggestion.what_to_record.length > 0 ? (
                           suggestion.what_to_record.map((idea, idx) => (
-                            <p key={idx}> {idx + 1}. {idea}</p>
+                            <p key={idx} className='text-sm font-medium'> {idx + 1}. {idea}</p>
                           ))
                         ) : (
                           <p className="text-gray-500 italic">No recording instructions available.</p>
@@ -195,7 +195,7 @@ function Step2SuggestionsWithUpload({ sessionId, suggestions = [], onAllVideosUp
                           <div>
                             {suggestion.key_highlights && suggestion.key_highlights.length > 0 ? (
                               suggestion.key_highlights.map((idea, idx) => (
-                                <p key={idx}> {idx + 1}. {idea}</p>
+                                <p key={idx} className='text-sm font-medium'> {idx + 1}. {idea}</p>
                               ))
                             ) : (
                               <p className="text-gray-500 italic">No key highlights instructions available.</p>
@@ -208,7 +208,7 @@ function Step2SuggestionsWithUpload({ sessionId, suggestions = [], onAllVideosUp
                       {suggestion.narration_script && (
                         <>
                         <h4 className="text-md font-semibold text-gray-900 mb-2">Example Narration Script: </h4>
-                        <p className="text-sm text-gray-900 flex items-center"> {suggestion.narration_script}</p>
+                        <p className="text-sm text-gray-900 font-medium text-justify"> {suggestion.narration_script}</p>
                         </>
                       )}
                       <br></br>
