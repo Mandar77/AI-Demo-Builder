@@ -13,9 +13,10 @@ function App() {
   const [finalVideoUrl, setFinalVideoUrl] = useState(null);
   const [processingStatus, setProcessingStatus] = useState('idle');
 
-  const handleGitHubSubmit = (url, session, suggestionsData) => {
+  const handleGitHubSubmit = (url, suggestionsData) => {
+    console.log('suggestions in handle github submit ', JSON.stringify(suggestionsData))
     setGithubUrl(url);
-    setSessionId(session);
+    setSessionId(suggestionsData["session_id"]);
     setSuggestions(suggestionsData);
     setStep(2);
   };
