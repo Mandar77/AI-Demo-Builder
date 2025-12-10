@@ -36,7 +36,7 @@ const api = {
   // Step 1: Analyze GitHub repository and create session
   async analyzeGitHub(githubUrl) {
     try {
-      //console.log('Calling Lambda at:', `${API_BASE_URL}/analyze`);
+      // console.log('Calling Lambda at:', `${API_BASE_URL}/analyze`);
       const response = await apiClient.post('/analyze', { github_url: githubUrl });
       
       // Check if this is the new format (with session_id) or old format (just analysis data)
@@ -99,6 +99,11 @@ const api = {
       suggestion_id: suggestionId,
       file_name: fileName
     });
+
+    if (typeof response.body === 'string') {
+      return JSON.parse(response.body);
+    }
+  
     return response;
   },
 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Upload, Video, CheckCircle, AlertCircle, Loader, ArrowLeft, Heading2 } from 'lucide-react';
+import { Upload, Video, CheckCircle, AlertCircle, Loader, ArrowLeft, ArrowRight } from 'lucide-react';
 import api from '../services/api';
 
 function Step2SuggestionsWithUpload({ sessionId, suggestions = [], onAllVideosUploaded, onBack }) {
@@ -7,6 +7,8 @@ function Step2SuggestionsWithUpload({ sessionId, suggestions = [], onAllVideosUp
   const [uploading, setUploading] = useState({});
   const [uploadProgress, setUploadProgress] = useState({});
   const [errors, setErrors] = useState({});
+  const [backendConfirmed, setBackendConfirmed] = useState({});
+  const [allUploaded, setAllUploaded] = useState(false);
 
   const handleFileSelect = async (suggestion, index) => {
     const input = document.createElement('input');
@@ -47,6 +49,8 @@ function Step2SuggestionsWithUpload({ sessionId, suggestions = [], onAllVideosUp
     try {
       // Get presigned upload URL
       const urlResponse = await api.getUploadUrl(sessionId, suggestionId, file.name);
+      console.log('Upload URL response:', urlResponse);
+      
       const uploadUrl = urlResponse.upload_url;
 
       // Upload to S3 using XMLHttpRequest for progress tracking
@@ -79,6 +83,8 @@ function Step2SuggestionsWithUpload({ sessionId, suggestions = [], onAllVideosUp
         xhr.send(file);
       });
 
+      console.log(`✓ Upload complete for video ${suggestionId}`);
+
       // Mark as uploaded
       const newUploadedVideos = {
         ...uploadedVideos,
@@ -87,9 +93,45 @@ function Step2SuggestionsWithUpload({ sessionId, suggestions = [], onAllVideosUp
       setUploadedVideos(newUploadedVideos);
       setUploadProgress(prev => ({ ...prev, [suggestionId]: 100 }));
 
+      // Poll backend for confirmation
+      const checkBackendStatus = async () => {
+        try {
+          const status = await api.getUploadStatus(sessionId);
+          
+          // Check if this video was confirmed by backend
+          if (status.uploaded_videos && status.uploaded_videos[suggestionId]) {
+            const videoStatus = status.uploaded_videos[suggestionId];
+            
+            console.log(`Video ${suggestionId} backend status:`, videoStatus.status);
+            
+            // Update UI with backend confirmation
+            setBackendConfirmed(prev => ({
+              ...prev,
+              [suggestionId]: videoStatus.status
+            }));
+          }
+        } catch (error) {
+          console.error('Status check error:', error);
+        }
+      };
+
+      // Poll every 2 seconds for 30 seconds
+      let pollCount = 0;
+      const pollInterval = setInterval(async () => {
+        await checkBackendStatus();
+        pollCount++;
+        if (pollCount >= 15) clearInterval(pollInterval); // Stop after 30s
+      }, 2000);
+
       // Check if all videos are uploaded
       if (Object.keys(newUploadedVideos).length === suggestions.length) {
-        setTimeout(() => onAllVideosUploaded(newUploadedVideos), 500);
+        // Show confirmation
+        setAllUploaded(true);
+        
+        // Auto-proceed after 3 seconds
+        setTimeout(() => {
+          onAllVideosUploaded(newUploadedVideos);
+        }, 3000);
       }
 
     } catch (error) {
@@ -144,6 +186,28 @@ function Step2SuggestionsWithUpload({ sessionId, suggestions = [], onAllVideosUp
         </div>
       </div>
 
+      {allUploaded && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-8 max-w-md mx-4 text-center animate-bounce-in">
+            <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
+              <CheckCircle className="w-10 h-10 text-white" />
+            </div>
+            <h3 className="text-2xl font-bold text-gray-900 mb-2">
+              All Videos Uploaded! 🎉
+            </h3>
+            <p className="text-gray-600 mb-4">
+              {suggestions.length} videos uploaded successfully
+            </p>
+            <p className="text-sm text-gray-500">
+              Proceeding to processing in 3 seconds...
+            </p>
+            <div className="mt-4 w-full bg-gray-200 rounded-full h-1">
+              <div className="bg-green-500 h-1 rounded-full animate-progress-3s" />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Suggestions with Upload */}
       <div className="space-y-4 mb-8">
         {suggestions.map((suggestion, index) => {
@@ -152,16 +216,18 @@ function Step2SuggestionsWithUpload({ sessionId, suggestions = [], onAllVideosUp
           const isUploading = uploading[suggestionId];
           const uploadProg = uploadProgress[suggestionId] || 0;
           const error = errors[suggestionId];
+          const backendStatus = backendConfirmed[suggestionId];
 
           return (
             <div
               key={index}
-              className={`relative rounded-xl border-2 transition-all duration-300 ${isUploaded
+              className={`relative rounded-xl border-2 transition-all duration-300 ${
+                isUploaded
                   ? 'bg-green-50 border-green-300 shadow-lg'
                   : isUploading
                     ? 'bg-blue-50 border-blue-300 shadow-md'
                     : 'bg-white border-gray-200 hover:shadow-md'
-                }`}
+              }`}
             >
               <div className="p-6">
                 {/* Suggestion Header */}
@@ -175,27 +241,35 @@ function Step2SuggestionsWithUpload({ sessionId, suggestions = [], onAllVideosUp
                         {suggestion.title || `Video Segment ${index + 1}`}
                       </h2>
 
-                      <p> <span className="text-md font-semibold text-gray-900 mb-2">Video Type: </span>{suggestion.video_type}</p>
-                      <br></br>
+                      <p>
+                        <span className="text-md font-semibold text-gray-900 mb-2">Video Type: </span>
+                        {suggestion.video_type}
+                      </p>
+                      <br />
 
                       <h4 className="text-md font-semibold text-gray-900 mb-2">Video Recording Instructions: </h4>
                       <div>
                         {suggestion.what_to_record && suggestion.what_to_record.length > 0 ? (
                           suggestion.what_to_record.map((idea, idx) => (
-                            <p key={idx} className='text-sm font-medium'> {idx + 1}. {idea}</p>
+                            <p key={idx} className="text-sm font-medium">
+                              {idx + 1}. {idea}
+                            </p>
                           ))
                         ) : (
                           <p className="text-gray-500 italic">No recording instructions available.</p>
                         )}
                       </div>
-                      <br></br>
+                      <br />
+
                       {suggestion.key_highlights && (
                         <>
                           <h4 className="text-md font-semibold text-gray-900 mb-2">Key Highlights: </h4>
                           <div>
                             {suggestion.key_highlights && suggestion.key_highlights.length > 0 ? (
                               suggestion.key_highlights.map((idea, idx) => (
-                                <p key={idx} className='text-sm font-medium'> {idx + 1}. {idea}</p>
+                                <p key={idx} className="text-sm font-medium">
+                                  {idx + 1}. {idea}
+                                </p>
                               ))
                             ) : (
                               <p className="text-gray-500 italic">No key highlights instructions available.</p>
@@ -203,15 +277,17 @@ function Step2SuggestionsWithUpload({ sessionId, suggestions = [], onAllVideosUp
                           </div>
                         </>
                       )}
-                      <br></br>
+                      <br />
 
                       {suggestion.narration_script && (
                         <>
-                        <h4 className="text-md font-semibold text-gray-900 mb-2">Example Narration Script: </h4>
-                        <p className="text-sm text-gray-900 font-medium text-justify"> {suggestion.narration_script}</p>
+                          <h4 className="text-md font-semibold text-gray-900 mb-2">Example Narration Script: </h4>
+                          <p className="text-sm text-gray-900 font-medium text-justify">
+                            {suggestion.narration_script}
+                          </p>
                         </>
                       )}
-                      <br></br>
+                      <br />
 
                       {suggestion.duration && (
                         <p className="text-sm text-gray-500 flex items-center">
@@ -231,9 +307,29 @@ function Step2SuggestionsWithUpload({ sessionId, suggestions = [], onAllVideosUp
                 {/* Upload Section */}
                 <div className="ml-14 mt-4">
                   {isUploaded ? (
-                    <div className="flex items-center text-green-700 bg-green-100 px-4 py-2 rounded-lg">
-                      <CheckCircle className="w-5 h-5 mr-2" />
-                      <span className="font-medium">Uploaded: {uploadedVideos[suggestionId]}</span>
+                    <div className="space-y-2">
+                      <div className="flex items-center text-green-700 bg-green-100 px-4 py-2 rounded-lg">
+                        <CheckCircle className="w-5 h-5 mr-2" />
+                        <span className="font-medium">Uploaded: {uploadedVideos[suggestionId]}</span>
+                      </div>
+                      
+                      {/* Backend Status */}
+                      {backendStatus && (
+                        <div className="ml-7 text-sm">
+                          {backendStatus === 'uploaded' && (
+                            <span className="text-blue-600">⏳ Validating...</span>
+                          )}
+                          {backendStatus === 'validated' && (
+                            <span className="text-green-600">✓ Validated by server</span>
+                          )}
+                          {backendStatus === 'converted' && (
+                            <span className="text-green-700 font-semibold">✓ Converted and ready</span>
+                          )}
+                          {backendStatus === 'validation_failed' && (
+                            <span className="text-red-600">✗ Validation failed</span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div>
@@ -243,9 +339,10 @@ function Step2SuggestionsWithUpload({ sessionId, suggestions = [], onAllVideosUp
                         className={`
                           inline-flex items-center px-6 py-3 rounded-lg font-semibold
                           transition-all duration-200 transform hover:scale-105
-                          ${isUploading
-                            ? 'bg-gray-400 text-white cursor-not-allowed'
-                            : 'bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 shadow-md hover:shadow-lg'
+                          ${
+                            isUploading
+                              ? 'bg-gray-400 text-white cursor-not-allowed'
+                              : 'bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 shadow-md hover:shadow-lg'
                           }
                         `}
                       >

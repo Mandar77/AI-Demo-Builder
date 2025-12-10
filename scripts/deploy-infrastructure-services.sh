@@ -204,7 +204,7 @@ deploy_python_lambda "notification-service" "service-16-notification-service" "l
 
 deploy_python_lambda "status-tracker" "service-17-status-tracker" "lambda_function.lambda_handler" "DYNAMODB_TABLE=${DYNAMODB_TABLE:-Sessions}"
 
-deploy_python_lambda "cleanup-service" "service-18-cleanup-service" "lambda_function.lambda_handler" "DYNAMODB_TABLE=${DYNAMODB_TABLE:-Sessions},S3_BUCKET=${S3_BUCKET:-cs6620-ai-demo-builder}"
+deploy_python_lambda "cleanup-service" "service-18-cleanup-service" "lambda_function.lambda_handler" "DYNAMODB_TABLE=${DYNAMODB_TABLE:-Sessions},S3_BUCKET=${S3_BUCKET:-ai-demo-builder}"
 
 echo "✅ All infrastructure services deployed!"
 echo ""

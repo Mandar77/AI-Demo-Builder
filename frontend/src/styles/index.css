@@ -30,3 +30,23 @@
            transition-all duration-200;
   }
 }
+
+@keyframes bounce-in {
+  0% { transform: scale(0.3); opacity: 0; }
+  50% { transform: scale(1.05); }
+  70% { transform: scale(0.9); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes progress-3s {
+  from { width: 0%; }
+  to { width: 100%; }
+}
+
+.animate-bounce-in {
+  animation: bounce-in 0.5s ease-out;
+}
+
+.animate-progress-3s {
+  animation: progress-3s 3s linear;
+}

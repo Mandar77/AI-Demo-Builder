@@ -4,8 +4,8 @@ const { S3Client, HeadObjectCommand } = require('@aws-sdk/client-s3');
 const dynamoClient = new DynamoDBClient({ region: process.env.AWS_REGION || 'us-east-1' });
 const s3Client = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' });
 
-const TABLE = process.env.DYNAMODB_TABLE || 'Sessions';
-const BUCKET = process.env.S3_BUCKET || 'cs6620-ai-demo-builder';
+const TABLE = process.env.DYNAMODB_TABLE || 'ai-demo-sessions';
+const BUCKET = process.env.S3_BUCKET || 'ai-demo-builder';
 
 exports.handler = async (event) => {
   console.log('Event:', JSON.stringify(event));

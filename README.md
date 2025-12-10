@@ -240,8 +240,8 @@ ai-demo-builder/
 # .env file
 AWS_REGION=us-east-1
 AWS_ACCOUNT_ID=288418345946
-S3_BUCKET=cs6620-ai-demo-builder
-DYNAMODB_TABLE=Sessions
+S3_BUCKET=ai-demo-builder
+DYNAMODB_TABLE=ai-demo-sessions
 GEMINI_API_KEY=your-gemini-key-here
 ```
 ---

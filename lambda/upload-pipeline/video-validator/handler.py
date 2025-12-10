@@ -8,8 +8,8 @@ from botocore.exceptions import ClientError
 s3_client = boto3.client('s3')
 dynamodb = boto3.resource('dynamodb')
 
-BUCKET = os.environ.get('S3_BUCKET', 'cs6620-ai-demo-builder')
-TABLE_NAME = os.environ.get('DYNAMODB_TABLE', 'Sessions')
+BUCKET = os.environ.get('S3_BUCKET', 'ai-demo-builder')
+TABLE_NAME = os.environ.get('DYNAMODB_TABLE', 'ai-demo-sessions')
 MAX_DURATION = int(os.environ.get('MAX_VIDEO_DURATION', '120'))  # 2 minutes max
 MIN_DURATION = int(os.environ.get('MIN_VIDEO_DURATION', '5'))    # 5 seconds min
 MAX_FILE_SIZE = int(os.environ.get('MAX_FILE_SIZE', '104857600')) # 100MB
