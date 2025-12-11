@@ -292,7 +292,7 @@ function Step2SuggestionsWithUpload({ sessionId, suggestions = [], onAllVideosUp
                       {suggestion.duration && (
                         <p className="text-sm text-gray-500 flex items-center">
                           <Video className="w-4 h-4 mr-1" />
-                          Suggested duration: {suggestion.duration} seconds
+                          Suggested duration: {suggestion.duration}
                         </p>
                       )}
                     </div>

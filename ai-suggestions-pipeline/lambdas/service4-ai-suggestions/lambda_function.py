@@ -389,7 +389,7 @@ For each video, provide:
             "sequence_number": 1,
             "title": "string - Clear title indicating what will be shown",
             "duration": "string - e.g., '1.5 minutes'",
-            "video_type": "string - installation|feature_demo|code_example|use_case|advanced_feature",
+            "video_type": "string - installation|feature_demo|code_example|use_case|advanced_feature" - give some other name if you feel like, but make sure it is always unique than the other videos,
             "what_to_record": [
                 "Step 1: Exact action to perform",
                 "Step 2: Next action",
@@ -421,7 +421,7 @@ For each video, provide:
 CRITICAL INSTRUCTIONS:
 1. **Adapt to project type** - Don't give web app instructions for a CLI tool!
 2. **Be ultra-specific** - Every command, every URL, every click should be spelled out
-3. **Think chronologically** - Video 1 should set up context, later videos build on it
+3. **Think chronologically** - Video 1 should set up context, later videos build on it. Every video should have a unique video type field where we give one or two words in snake case about the type of video it is
 4. **Consider the viewer** - They might be seeing this project for the first time
 5. **Make it filmable** - Every instruction should be something that can be screen-recorded
 6. **Include actual values** - Use realistic example data, URLs, commands

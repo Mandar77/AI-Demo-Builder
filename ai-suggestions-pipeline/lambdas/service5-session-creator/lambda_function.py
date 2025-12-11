@@ -54,7 +54,7 @@ def lambda_handler(event, context):
         
         for idx, video in enumerate(videos, 1):
             transformed_suggestions.append({
-                'id': f"suggestion_{idx}",
+                'id': video.get('video_type', 'feature_demo'),
                 'sequence_number': video.get('sequence_number', idx),
                 'title': video.get('title', ''),
                 'description': video.get('description', ''),
@@ -72,19 +72,19 @@ def lambda_handler(event, context):
         session_item = {
             'id': session_id,              # Primary identifier (using session_id as id)
             'project_name': project_name,  # Partition key
-            'session_id': session_id,      # Sort key (keeping both for compatibility)
+            #'session_id': session_id,      # Sort key (keeping both for compatibility)
             'github_url': github_url,
             'status': 'initialized',
             'suggestions': transformed_suggestions,
-            'uploaded_videos': {},         # Empty dict - videos uploaded later
+            #'uploaded_videos': {},         # Empty dict - videos uploaded later
             'created_at': created_at,
-            'updated_at': updated_at,
+            #'updated_at': updated_at,
             'expires_at': expires_at,
             # Additional fields for reference
-            'owner': owner,
-            'github_data': github_data,
-            'project_analysis': event.get('project_analysis', {}),
-            'project_metadata': event.get('project_metadata', {})
+            #'owner': owner,
+            #'github_data': github_data,
+            #'project_analysis': event.get('project_analysis', {}),
+            #'project_metadata': event.get('project_metadata', {})
         }
 
         # Store in DynamoDB
