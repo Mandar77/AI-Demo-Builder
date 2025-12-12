@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { Github, ArrowRight, AlertCircle } from 'lucide-react';
+import { Github, ArrowRight, AlertCircle, Loader } from 'lucide-react';
 import api from '../services/api';
 import { createPortal } from 'react-dom';
-import LoadingSpinner from './LoadingSpinner';
 
 function Step1GitHubInput({ onSubmit, initialUrl }) {
   const [githubUrl, setGithubUrl] = useState(initialUrl || '');
@@ -15,7 +14,6 @@ function Step1GitHubInput({ onSubmit, initialUrl }) {
     return githubRegex.test(url);
   };
 
-  // When the user clicks on the 'Analyze Repo' button
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -35,17 +33,62 @@ function Step1GitHubInput({ onSubmit, initialUrl }) {
       // Step 1: Analyze repository
       setLoadingMessage('Analyzing repository...');
       const analysisResponse = await api.analyzeGitHub(githubUrl);
+      console.log('📊 Analysis response:', analysisResponse);
       
       // Step 2: Get AI suggestions
       setLoadingMessage('Generating AI suggestions...');
-      const suggestionsResponse = await api.getSuggestions(analysisResponse['analysis']);
+      const suggestionsResponse = await api.getSuggestions(analysisResponse.analysis);
+      console.log('💡 Suggestions response:', suggestionsResponse);
+      
+      // Extract suggestions from response (handle different structures)
+      let suggestions = [];
+      let sessionId = null;
+      
+      // Handle suggestionsResponse structure
+      if (suggestionsResponse) {
+        // Check for body wrapper (API Gateway format)
+        let data = suggestionsResponse;
+        if (suggestionsResponse.body) {
+          data = typeof suggestionsResponse.body === 'string' 
+            ? JSON.parse(suggestionsResponse.body) 
+            : suggestionsResponse.body;
+        }
+        
+        // Extract session_id
+        sessionId = data.session_id || data.sessionId || suggestionsResponse.session_id;
+        
+        // Extract suggestions array
+        if (data.suggestions) {
+          suggestions = data.suggestions.videos || data.suggestions;
+        } else if (data.videos) {
+          suggestions = data.videos;
+        } else if (data.video_suggestions) {
+          suggestions = data.video_suggestions;
+        } else if (Array.isArray(data)) {
+          suggestions = data;
+        }
+      }
+      
+      console.log('📋 Extracted suggestions:', suggestions);
+      console.log('🆔 Session ID:', sessionId);
+
+      // If no session_id, create one from project name + timestamp
+      if (!sessionId) {
+        const projectName = analysisResponse.projectName || 'project';
+        sessionId = `${projectName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${Date.now()}`;
+        console.log('🆔 Generated session ID:', sessionId);
+      }
 
       setLoadingMessage('Complete!');
       
-      onSubmit(
-        githubUrl,
-        suggestionsResponse
-      );
+      // Pass data to App.jsx in the expected format
+      onSubmit({
+        sessionId: sessionId,
+        suggestions: Array.isArray(suggestions) ? suggestions : [],
+        projectName: analysisResponse.projectName,
+        analysisData: analysisResponse.analysis
+      });
+      
     } catch (err) {
       console.error('Error:', err);
       setError(err.message || 'Failed to analyze repository. Please try again.');
@@ -56,7 +99,7 @@ function Step1GitHubInput({ onSubmit, initialUrl }) {
   };
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="max-w-2xl mx-auto p-6">
       {/* Full-screen loading overlay */}
       {loading && createPortal(
         <div 
@@ -68,7 +111,7 @@ function Step1GitHubInput({ onSubmit, initialUrl }) {
             className="bg-white rounded-lg p-8 max-w-md w-full mx-4 text-center"
             onClick={(e) => e.stopPropagation()}
           >
-            <LoadingSpinner />
+            <Loader className="w-12 h-12 animate-spin text-blue-600 mx-auto" />
             <h3 className="mt-4 text-xl font-semibold text-gray-900">
               {loadingMessage}
             </h3>
@@ -113,7 +156,7 @@ function Step1GitHubInput({ onSubmit, initialUrl }) {
             value={githubUrl}
             onChange={(e) => setGithubUrl(e.target.value)}
             placeholder="https://github.com/username/repository"
-            className="input-field"
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
             disabled={loading}
           />
           <p className="mt-2 text-sm text-gray-500">
@@ -131,12 +174,12 @@ function Step1GitHubInput({ onSubmit, initialUrl }) {
         <button
           type="submit"
           disabled={loading}
-          className="w-full btn-primary flex items-center justify-center"
+          className="w-full px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold rounded-lg hover:from-blue-600 hover:to-purple-700 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
         >
           {loading ? (
             <>
-              <LoadingSpinner />
-              <span className="ml-2">Processing...</span>
+              <Loader className="w-5 h-5 animate-spin mr-2" />
+              <span>Processing...</span>
             </>
           ) : (
             <>

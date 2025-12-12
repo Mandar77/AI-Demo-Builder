@@ -17,7 +17,7 @@ s3_client = boto3.client('s3')
 dynamodb = boto3.resource('dynamodb')
 
 # Configuration
-BUCKET_NAME = os.environ.get('BUCKET_NAME', 'cs6620-ai-builder-project')
+BUCKET_NAME = os.environ.get('BUCKET_NAME', 'ai-demo-builder')
 TABLE_NAME = os.environ.get('TABLE_NAME', 'ai-demo-sessions')
 PARTITION_KEY = os.environ.get('PARTITION_KEY', 'project_name')
 

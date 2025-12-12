@@ -21,7 +21,7 @@ const docClient = DynamoDBDocumentClient.from(dynamoClient);
 
 // Configuration
 const CONFIG = {
-    BUCKET_NAME: process.env.BUCKET_NAME || 'cs6620-ai-builder-project',
+    BUCKET_NAME: process.env.BUCKET_NAME || 'ai-demo-builder',
     TABLE_NAME: process.env.TABLE_NAME || 'ai-demo-sessions',
     PARTITION_KEY: process.env.PARTITION_KEY || 'project_name',
     DEFAULT_EXPIRY: 7 * 24 * 60 * 60, // 7 days in seconds
